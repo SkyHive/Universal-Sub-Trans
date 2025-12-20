@@ -1,0 +1,4 @@
+.agent/
+.venv/
+**/__pycache__
+design_doc.md
