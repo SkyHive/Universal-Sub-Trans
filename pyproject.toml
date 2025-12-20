@@ -1,0 +1,38 @@
+[project]
+name = "universal-sub-trans"
+version = "0.1.0"
+description = "A universal subtitle translation tool."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pywebview>=5.0.0",
+    "faster-whisper>=1.0.0",
+    "openai>=1.0.0",
+    "pydantic-settings>=2.0.0",
+    "ffmpeg-python>=0.2.0",
+    "appdirs>=1.4.4",
+    "python-json-logger>=2.0.7",
+    "PyQt6>=6.0.0",
+    "PyQt6-WebEngine>=6.0.0",
+    "qtpy>=2.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "flake8>=6.0.0",
+    "pytest>=7.0.0",
+    "mypy>=1.0.0",
+]
+
+[tool.uv]
+# Removed deprecated dev-dependencies field
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"
+line_length = 88
