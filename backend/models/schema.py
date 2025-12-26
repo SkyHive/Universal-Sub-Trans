@@ -59,6 +59,7 @@ class AppConfig(BaseModel):
         description="PyPI mirror URL for downloading dependencies."
     )
     language: str = Field(default="en", description="UI language (en/zh).")
+    log_level: str = Field(default="INFO", description="Log level (DEBUG/INFO/WARNING/ERROR).")
 
 class GlobalConfig(BaseModel):
     """

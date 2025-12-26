@@ -31,6 +31,9 @@ export const translations = {
       "Hint: Use https://pypi.tuna.tsinghua.edu.cn for faster downloads in China.",
     outputDir: "Output Directory",
     uiLanguage: "UI Language",
+    logLevel: "Log Level",
+    logHint:
+      "Logs are saved in the 'logs' folder in the directory where the program is located.",
     applySettings: "Apply Settings",
     systemStatus: "System Status",
     hardwareRuntime: "Hardware detection and AI runtime environment.",
@@ -106,6 +109,8 @@ export const translations = {
       "提示：在中国境内使用 https://pypi.tuna.tsinghua.edu.cn 可加速下载。",
     outputDir: "字幕输出目录",
     uiLanguage: "界面语言",
+    logLevel: "日志等级",
+    logHint: "日志保存在程序所在目录的 logs 文件夹中。",
     applySettings: "应用设置",
     systemStatus: "系统状态",
     hardwareRuntime: "硬件检测与 AI 运行环境。",

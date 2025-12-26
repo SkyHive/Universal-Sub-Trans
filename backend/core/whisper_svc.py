@@ -1,6 +1,6 @@
 import os
+import platform
 from typing import Generator, Any
-from faster_whisper import WhisperModel
 from backend.services.logger import logger
 from backend.services.config_mgr import config_mgr
 
@@ -30,26 +30,39 @@ class FasterWhisperService:
                 compute_type = "float16" if config.device == "cuda" else "int8"
 
             try:
+                # Debug info: print PATH and LD_LIBRARY_PATH if needed
+                if platform.system().lower() == "windows":
+                    logger.debug(f"current_path: {os.environ.get('PATH', '')[:200]}...")
+                
+                from faster_whisper import WhisperModel
                 self.model = WhisperModel(
                     config.model_size,
                     device=config.device,
                     compute_type=compute_type
                 )
+            except ImportError as ie:
+                logger.error(f"faster_whisper_import_failed: {ie}. Make sure faster-whisper is installed.")
+                raise ie
             except Exception as e:
                 if config.device == "cuda":
                     logger.warning(f"cuda_init_failed_falling_back_to_cpu: {e}")
                     # Force CPU fallback
-                    self.model = WhisperModel(
-                        config.model_size,
-                        device="cpu",
-                        compute_type="int8"
-                    )
+                    try:
+                        from faster_whisper import WhisperModel
+                        self.model = WhisperModel(
+                            config.model_size,
+                            device="cpu",
+                            compute_type="int8"
+                        )
+                    except Exception as cpu_e:
+                        logger.error(f"whisper_cpu_fallback_failed: {cpu_e}")
+                        raise cpu_e
                 else:
-                    logger.error(f"whisper_model_load_failed: {e}")
+                    logger.error(f"whisper_model_load_failed: {e}", exc_info=True)
                     raise e
 
             self._current_model_size = config.model_size
-            logger.info(f"whisper_model_loaded_successfully: {config.model_size} on {self.model.model.device}")
+            logger.info(f"whisper_model_loaded_successfully: {config.model_size}")
 
     def transcribe(self, media_path: str) -> Generator[dict, None, None]:
         """

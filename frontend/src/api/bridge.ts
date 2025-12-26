@@ -4,6 +4,7 @@ export interface Config {
     output_dir: string;
     pypi_mirror: string;
     language: string;
+    log_level: string;
   };
   whisper: {
     model_size: string;

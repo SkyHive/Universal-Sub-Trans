@@ -1,5 +1,6 @@
 import json
 import os
+import logging
 from typing import Any
 from appdirs import user_config_dir
 from backend.models.schema import GlobalConfig
@@ -15,6 +16,17 @@ class ConfigManager:
         os.makedirs(self.config_dir, exist_ok=True)
         self.config_path = os.path.join(self.config_dir, "config.json")
         self.config: GlobalConfig = self.load_config()
+        self._apply_log_level()
+
+    def _apply_log_level(self) -> None:
+        """Applies the log level from config to the global logger."""
+        level_str = self.config.app.log_level.upper()
+        level = getattr(logging, level_str, logging.INFO)
+        logger.setLevel(level)
+        # Also update handlers
+        for handler in logger.handlers:
+            handler.setLevel(level)
+        logger.info(f"log_level_set_to: {level_str}")
 
     def load_config(self) -> GlobalConfig:
         """
@@ -76,6 +88,7 @@ class ConfigManager:
         try:
             self.config = GlobalConfig(**updated_dict)
             logger.info("config_object_updated_successfully")
+            self._apply_log_level()
             self.save_config()
         except Exception as e:
             logger.error(f"config_validation_failed: {e}")

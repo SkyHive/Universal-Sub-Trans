@@ -364,13 +364,13 @@ const handleManualCheck = async () => {
                             </div>
                             <div class="md:col-span-2 space-y-2">
                                 <label class="text-xs font-bold uppercase opacity-50 ml-1">{{ t.customBatchPrompt
-                                    }}</label>
+                                }}</label>
                                 <textarea v-model="store.config.ai.system_prompt" rows="6"
                                     class="w-full px-5 py-4 rounded-2xl bg-background/50 border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-medium text-xs font-mono custom-scrollbar resize-none"></textarea>
                             </div>
                             <div class="md:col-span-2 space-y-2">
                                 <label class="text-xs font-bold uppercase opacity-50 ml-1">{{ t.fallbackPrompt
-                                    }}</label>
+                                }}</label>
                                 <textarea v-model="store.config.ai.fallback_prompt" rows="4"
                                     class="w-full px-5 py-4 rounded-2xl bg-background/50 border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-medium text-xs font-mono custom-scrollbar resize-none"></textarea>
                             </div>
@@ -385,7 +385,7 @@ const handleManualCheck = async () => {
                         <div class="grid grid-cols-2 gap-6">
                             <div class="space-y-2">
                                 <label class="text-xs font-bold uppercase opacity-50 ml-1">{{ t.parameterCount
-                                }}</label>
+                                    }}</label>
                                 <select v-model="store.config.whisper.model_size"
                                     class="w-full px-5 py-4 rounded-2xl bg-background/50 border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold appearance-none">
                                     <option value="tiny">{{ t.tiny }}</option>
@@ -430,6 +430,17 @@ const handleManualCheck = async () => {
                                     <option value="en">English</option>
                                     <option value="zh">简体中文</option>
                                 </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-xs font-bold uppercase opacity-50 ml-1">{{ t.logLevel }}</label>
+                                <select v-model="store.config.app.log_level"
+                                    class="w-full px-5 py-4 rounded-2xl bg-background/50 border border-border focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all font-bold appearance-none">
+                                    <option value="DEBUG">DEBUG</option>
+                                    <option value="INFO">INFO</option>
+                                    <option value="WARNING">WARNING</option>
+                                    <option value="ERROR">ERROR</option>
+                                </select>
+                                <p class="text-[10px] opacity-40 ml-1">{{ t.logHint }}</p>
                             </div>
                         </div>
                     </section>
@@ -534,7 +545,7 @@ const handleManualCheck = async () => {
                                     class="flex items-center justify-between text-sm font-bold uppercase tracking-widest">
                                     <span>{{ t.downloadingCudnn }}</span>
                                     <span class="text-primary">{{ Math.round(store.systemStatus.install_progress)
-                                    }}%</span>
+                                        }}%</span>
                                 </div>
                                 <div
                                     class="w-full h-3 bg-accent/30 rounded-full overflow-hidden p-1 border border-white/5">

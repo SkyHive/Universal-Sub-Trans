@@ -32,8 +32,14 @@ class HardwareManager:
         # Use a list to avoid shell=True, and set cwd to a safe path if we are on a UNC path
         cmd = ["wmic", "path", "win32_videocontroller", "get", "name"]
         try:
+            startupinfo = None
+            if platform.system().lower() == "windows":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = subprocess.SW_HIDE
+
             # We explicitly set cwd to a safe local directory to avoid CMD UNC path warnings
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd="C:\\").decode("utf-8").lower()
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd="C:\\", startupinfo=startupinfo).decode("utf-8").lower()
             
             if "nvidia" in output:
                 return "nvidia"
