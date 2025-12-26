@@ -8,10 +8,44 @@ export const useAppStore = defineStore("app", {
     currentProgress: 0,
     statusMessage: "",
     results: [] as Segment[],
+    systemStatus: {
+      gpu_vendor: "unknown",
+      can_accelerate: false,
+      needs_install: false,
+      install_progress: 0,
+      is_installing: false,
+    },
   }),
   actions: {
+    async checkSystemStatus() {
+      const status = await bridge.checkDepStatus();
+      this.systemStatus = {
+        ...this.systemStatus,
+        gpu_vendor: status.gpu_vendor,
+        can_accelerate: status.can_accelerate,
+        needs_install: status.needs_install,
+      };
+    },
+    async installDependencies() {
+      this.systemStatus.is_installing = true;
+      this.systemStatus.install_progress = 0;
+      await bridge.installDeps();
+    },
+    updateInstallProgress(progress: number) {
+      this.systemStatus.install_progress = progress;
+    },
+    completeInstallation(message: string) {
+      this.systemStatus.is_installing = false;
+      this.systemStatus.needs_install = false;
+      this.systemStatus.install_progress = 100;
+      this.statusMessage = message;
+    },
+    installationFailed(message: string) {
+      this.systemStatus.is_installing = false;
+      this.statusMessage = message;
+    },
     async fetchConfig() {
-      this.config = await bridge.getConfig();
+      this.config = await bridge.fetchConfig();
     },
     async saveConfig(updates: any) {
       const resp = await bridge.updateConfig(updates);
@@ -19,14 +53,25 @@ export const useAppStore = defineStore("app", {
         this.config = resp.config;
       }
     },
-    async startTask(videoPath: string, targetLang: string) {
-      this.results = [];
-      const resp = await bridge.startTask(videoPath, targetLang);
-      if (resp.status === "started") {
-        this.isProcessing = true;
+    async startTask(
+      videoPath: string,
+      targetLang: string = "Chinese",
+      resumeMode: string = "fresh"
+    ) {
+      this.isProcessing = true;
+      this.currentProgress = 0;
+      this.statusMessage = "Starting...";
+      // Only clear results if it's not a resume of translation
+      if (resumeMode === "fresh") {
+        this.results = [];
       }
-      return resp;
+      return await bridge.startTask(videoPath, targetLang, resumeMode);
     },
+
+    async checkResumePoint(path: string) {
+      return await bridge.checkResumePoint(path);
+    },
+
     updateStatus(data: { message: string; progress: number }) {
       this.statusMessage = data.message;
       this.currentProgress = data.progress;

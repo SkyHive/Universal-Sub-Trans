@@ -6,7 +6,9 @@ from backend.services.config_mgr import config_mgr
 
 class FasterWhisperService:
     """
-    Service for transcribing audio files using Faster-Whisper.
+    Service for transcribing audio/video files using Faster-Whisper.
+    Faster-Whisper uses PyAV (FFmpeg libraries) internally, so external
+    FFmpeg binaries are not strictly required for the Python API.
     """
 
     def __init__(self) -> None:
@@ -16,6 +18,7 @@ class FasterWhisperService:
     def _ensure_model_loaded(self) -> None:
         """
         Loads the model if it's not already loaded or if the size has changed.
+        Includes a fallback to CPU if CUDA initialization fails.
         """
         config = config_mgr.config.whisper
         if self.model is None or self._current_model_size != config.model_size:
@@ -26,20 +29,34 @@ class FasterWhisperService:
             if compute_type == "default":
                 compute_type = "float16" if config.device == "cuda" else "int8"
 
-            self.model = WhisperModel(
-                config.model_size,
-                device=config.device,
-                compute_type=compute_type
-            )
-            self._current_model_size = config.model_size
-            logger.info("whisper_model_loaded_successfully")
+            try:
+                self.model = WhisperModel(
+                    config.model_size,
+                    device=config.device,
+                    compute_type=compute_type
+                )
+            except Exception as e:
+                if config.device == "cuda":
+                    logger.warning(f"cuda_init_failed_falling_back_to_cpu: {e}")
+                    # Force CPU fallback
+                    self.model = WhisperModel(
+                        config.model_size,
+                        device="cpu",
+                        compute_type="int8"
+                    )
+                else:
+                    logger.error(f"whisper_model_load_failed: {e}")
+                    raise e
 
-    def transcribe(self, audio_path: str) -> Generator[dict, None, None]:
+            self._current_model_size = config.model_size
+            logger.info(f"whisper_model_loaded_successfully: {config.model_size} on {self.model.model.device}")
+
+    def transcribe(self, media_path: str) -> Generator[dict, None, None]:
         """
-        Transcribes an audio file and yields segments.
+        Transcribes an audio or video file and yields segments.
 
         Args:
-            audio_path (str): Path to the audio file.
+            media_path (str): Path to the media file.
 
         Yields:
             dict: A segment with start, end, and text.
@@ -47,10 +64,11 @@ class FasterWhisperService:
         self._ensure_model_loaded()
         
         config = config_mgr.config.whisper
-        logger.info(f"transcription_started: {audio_path}")
+        logger.info(f"transcription_started: {media_path}")
 
+        # Faster-whisper handles video paths directly via PyAV
         segments, info = self.model.transcribe(
-            audio_path,
+            media_path,
             beam_size=5,
             language=config.language,
             vad_filter=True,

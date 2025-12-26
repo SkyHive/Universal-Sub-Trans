@@ -14,23 +14,27 @@ class AIEngine:
     def _get_client(self) -> OpenAI:
         """
         Returns a configured OpenAI client.
+        
+        Bypasses system proxies for local connections to avoid issues 
+        with system-wide proxies on Windows/WSL.
         """
+        import httpx
         config = config_mgr.config.ai
+        logger.debug(f"initializing_ai_client: base_url={config.base_url}")
+        
+        # trust_env=False prevents httpx from looking at system proxy environment variables
+        # Set a longer timeout (60s) for local models which can be slow
+        http_client = httpx.Client(trust_env=False, timeout=60.0)
+        
         return OpenAI(
             api_key=config.api_key,
-            base_url=config.base_url
+            base_url=config.base_url,
+            http_client=http_client
         )
 
     def translate_batch(self, lines: List[str], target_lang: str = "Chinese") -> List[str]:
         """
         Translates a batch of subtitle lines to the target language.
-
-        Args:
-            lines (List[str]): List of source text lines.
-            target_lang (str): Target language for translation.
-
-        Returns:
-            List[str]: List of translated text lines.
         """
         if not lines:
             return []
@@ -38,13 +42,11 @@ class AIEngine:
         config = config_mgr.config.ai
         client = self._get_client()
 
-        # Construct prompt for batch translation to preserve context
-        prompt = (
-            f"You are a professional subtitle translator. Translate the following subtitles into {target_lang}. "
-            "Maintain the context and tone. Keep the same number of lines. Return ONLY the translated lines, "
-            "one per line, without any numbering or extra text.\n\n"
-        )
-        prompt += "\n".join(lines)
+        # Step 1: Format input with <L数字> markers as requested by prompt
+        batch_lines = []
+        for i, line in enumerate(lines):
+            batch_lines.append(f"<L{i+1}> {line}")
+        batch_text = "\n".join(batch_lines)
 
         logger.info(f"ai_translation_batch_started: {len(lines)} lines")
 
@@ -52,29 +54,63 @@ class AIEngine:
             response = client.chat.completions.create(
                 model=config.model_name,
                 messages=[
-                    {"role": "system", "content": "You are a professional translator."},
-                    {"role": "user", "content": prompt}
+                    {"role": "system", "content": config.system_prompt},
+                    {"role": "user", "content": batch_text}
                 ],
                 temperature=config.temperature
             )
 
             result_text = response.choices[0].message.content or ""
-            translated_lines = [line.strip() for line in result_text.strip().split("\n") if line.strip()]
-
-            # Basic verification: line count should match
-            if len(translated_lines) != len(lines):
-                logger.warning(
-                    f"translation_line_count_mismatch: expected {len(lines)}, got {len(translated_lines)}"
-                )
-                # If mismatch, we might need a more robust strategy, 
-                # but for now we'll just return what we got or pad/truncate.
-                if len(translated_lines) < len(lines):
-                    translated_lines += [""] * (len(lines) - len(translated_lines))
+            logger.debug(f"ai_raw_response: {repr(result_text)}")
+            
+            # Parsing Step 1: Extract text by matching <L数字>
+            import re
+            cleaned_lines = [None] * len(lines)
+            
+            # Find all patterns like <L1> Text
+            matches = re.findall(r'<L(\d+)>(.*?)(?=<L\d+>|$)', result_text, re.DOTALL)
+            
+            for index_str, content in matches:
+                try:
+                    idx = int(index_str) - 1
+                    if 0 <= idx < len(lines):
+                        cleaned_lines[idx] = content.strip()
+                except ValueError:
+                    continue
+            
+            # Fill missing lines if parsing failed for some
+            final_lines = []
+            missing_indices = []
+            for i, line in enumerate(cleaned_lines):
+                if line is None:
+                    missing_indices.append(i)
+                    final_lines.append(lines[i]) # Fallback to original
                 else:
-                    translated_lines = translated_lines[:len(lines)]
+                    final_lines.append(line)
+
+            # If count mismatch or too many missing, try line-by-line fallback if config allows
+            if len(missing_indices) > 0:
+                logger.warning(f"batch_parsing_partial_failure: missing {len(missing_indices)} lines. falling_back_to_line_by_line")
+                for i in missing_indices:
+                    try:
+                        line_resp = client.chat.completions.create(
+                            model=config.model_name,
+                            messages=[
+                                {"role": "system", "content": config.fallback_prompt},
+                                {"role": "user", "content": lines[i]}
+                            ],
+                            temperature=config.temperature
+                        )
+                        final_lines[i] = (line_resp.choices[0].message.content or lines[i]).strip()
+                    except Exception as le:
+                        logger.error(f"line_fallback_failed for index {i}: {le}")
 
             logger.info("ai_translation_batch_success")
-            return translated_lines
+            return final_lines
+
+        except Exception as e:
+            logger.error(f"ai_translation_failed: {e}", exc_info=True)
+            return lines
 
         except Exception as e:
             logger.error(f"ai_translation_failed: {e}", exc_info=True)

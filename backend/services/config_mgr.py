@@ -52,21 +52,34 @@ class ConfigManager:
         Args:
             updates (dict[str, Any]): Dictionary of updates to apply.
         """
-        # This is a simplified update logic. 
-        # In a real app, you might want deeper merging or validation.
+        logger.info(f"incoming_config_update_keys: {list(updates.keys())}")
+        
         config_dict = self.config.model_dump()
         
         def deep_update(d: dict, u: dict) -> dict:
             for k, v in u.items():
-                if isinstance(v, dict):
-                    d[k] = deep_update(d.get(k, {}), v)
+                if isinstance(v, dict) and k in d and isinstance(d[k], dict):
+                    d[k] = deep_update(d[k], v)
                 else:
                     d[k] = v
             return d
 
         updated_dict = deep_update(config_dict, updates)
-        self.config = GlobalConfig(**updated_dict)
-        self.save_config()
+        
+        # Explicitly ensure language is preserved during merge from updates
+        if 'app' in updates and isinstance(updates['app'], dict) and 'language' in updates['app']:
+            new_lang = updates['app']['language']
+            if 'app' not in updated_dict: updated_dict['app'] = {}
+            updated_dict['app']['language'] = new_lang
+            logger.info(f"forcing_language_update_to: {new_lang}")
+
+        try:
+            self.config = GlobalConfig(**updated_dict)
+            logger.info("config_object_updated_successfully")
+            self.save_config()
+        except Exception as e:
+            logger.error(f"config_validation_failed: {e}")
+            raise
 
 # Global config manager instance
 config_mgr = ConfigManager()

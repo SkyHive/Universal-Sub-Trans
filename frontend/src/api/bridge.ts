@@ -2,7 +2,8 @@ export interface Config {
   app: {
     theme: string;
     output_dir: string;
-    ffmpeg_path: string | null;
+    pypi_mirror: string;
+    language: string;
   };
   whisper: {
     model_size: string;
@@ -16,6 +17,8 @@ export interface Config {
     model_name: string;
     temperature: number;
     batch_size: number;
+    system_prompt: string;
+    fallback_prompt: string;
   };
 }
 
@@ -40,14 +43,25 @@ declare global {
           updates: Partial<Config>
         ): Promise<{ status: string; config: Config }>;
         select_file(): Promise<string | null>;
+        check_task_resume_point(video_path: string): Promise<{
+          has_audio: boolean;
+          has_transcript: boolean;
+        }>;
         start_task(
           video_path: string,
-          target_lang: string
+          target_lang: string,
+          resume_mode: string
         ): Promise<{ status: string; message?: string }>;
         minimize(): void;
         close(): void;
         get_position(): Promise<{ x: number; y: number }>;
         move_window(x: number, y: number): void;
+        check_dep_status(): Promise<{
+          gpu_vendor: string;
+          can_accelerate: boolean;
+          needs_install: boolean;
+        }>;
+        install_deps(): Promise<{ status: string }>;
       };
     };
     onBackendEvent: (event: string, data: any) => void;
@@ -99,7 +113,7 @@ const waitForBridge = (): Promise<void> => {
 };
 
 export const bridge = {
-  async getConfig(): Promise<Config> {
+  async fetchConfig(): Promise<Config> {
     await waitForBridge();
     if (!window.pywebview?.api?.get_config) {
       console.error(
@@ -123,10 +137,15 @@ export const bridge = {
 
   async startTask(
     videoPath: string,
-    targetLang: string = "Chinese"
+    targetLang: string = "Chinese",
+    resumeMode: string = "fresh"
   ): Promise<any> {
     await waitForBridge();
-    return await window.pywebview.api.start_task(videoPath, targetLang);
+    return await window.pywebview.api.start_task(
+      videoPath,
+      targetLang,
+      resumeMode
+    );
   },
 
   async minimize(): Promise<void> {
@@ -147,5 +166,20 @@ export const bridge = {
   async moveWindow(x: number, y: number): Promise<void> {
     await waitForBridge();
     window.pywebview.api.move_window(x, y);
+  },
+
+  async checkDepStatus(): Promise<any> {
+    await waitForBridge();
+    return await window.pywebview.api.check_dep_status();
+  },
+
+  async checkResumePoint(videoPath: string): Promise<any> {
+    await waitForBridge();
+    return await window.pywebview.api.check_task_resume_point(videoPath);
+  },
+
+  async installDeps(): Promise<any> {
+    await waitForBridge();
+    return await window.pywebview.api.install_deps();
   },
 };

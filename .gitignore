@@ -2,3 +2,7 @@
 .venv/
 **/__pycache__
 design_doc.md
+resources/
+dist/
+*.build/
+*.dist/
