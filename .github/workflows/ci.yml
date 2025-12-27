@@ -1,58 +1,58 @@
 name: CI
 
 on:
-  push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    push:
+        branches: [main, master]
+    pull_request:
+        branches: [main, master]
 
 jobs:
-  frontend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    steps:
-      - uses: actions/checkout@v4
+    frontend:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: ./frontend
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+                  cache: "npm"
+                  cache-dependency-path: frontend/package-lock.json
 
-      - name: Install dependencies
-        run: npm ci
+            - name: Install dependencies
+              run: npm ci
 
-      - name: Build frontend
-        run: npm run build
+            - name: Build frontend
+              run: npm run build
 
-  backend:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    backend:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
-          cache-dependency-path: uv.lock
+            - name: Install uv
+              uses: astral-sh/setup-uv@v5
+              with:
+                  enable-cache: true
+                  cache-dependency-path: uv.lock
 
-      - name: Set up Python
-        run: uv python install
+            - name: Set up Python
+              run: uv python install 3.12
 
-      - name: Install dependencies
-        run: uv sync --all-groups
+            - name: Install dependencies
+              run: uv sync --all-groups
 
-      - name: Run Black check
-        run: uv run black --check .
+            - name: Run Black check
+              run: uv run black --check .
 
-      - name: Run Isort check
-        run: uv run isort --check .
+            - name: Run Isort check
+              run: uv run isort --check .
 
-      - name: Run Flake8
-        run: uv run flake8 .
+            - name: Run Flake8
+              run: uv run flake8 .
 
-      - name: Run Mypy
-        run: uv run mypy --explicit-package-bases .
+            - name: Run Mypy
+              run: uv run mypy --explicit-package-bases .

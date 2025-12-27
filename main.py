@@ -42,7 +42,8 @@ def main() -> None:
 
     # 3. Determine URL with robust resolution
     if dev_mode:
-        url = "http://localhost:5173"
+        # Development: Use environment variable or vite default
+        url = os.environ.get("FRONTEND_URL", "http://localhost:5173")
     else:
         # Production: Start a local HTTP server to serve static files
         # This fixes 404 errors and protocol restrictions (file://)

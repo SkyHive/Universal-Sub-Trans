@@ -4,7 +4,8 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/UI-Vue3%20%2B%20Tailwind-42b883" alt="UI">
-  <img src="https://img.shields.io/badge/Backend-Python-3776ab" alt="Backend">
+  <img src="https://img.shields.io/badge/Backend-Python%203.12-3776ab" alt="Backend">
+  <img src="https://img.shields.io/badge/CI-GitHub%20Actions-2088FF" alt="CI">
   <img src="https://img.shields.io/badge/Acceleration-NVIDIA%20CUDA-76b900" alt="CUDA">
   <img src="https://img.shields.io/badge/License-MIT-blue" alt="License">
 </p>
@@ -35,13 +36,12 @@
 
 ## 🛠️ 快速启动
 
-### 1. 后端准备 (Backend)
-
-项目使用 `uv` 进行高效的 Python 依赖管理：
+项目推荐使用 **Python 3.12**，并使用 `uv` 进行高效的依赖管理：
 
 ```bash
-# 同步环境并建立虚拟环境
-uv sync
+# 安装指定版本的 Python 并同步环境
+uv python install 3.12
+uv sync --all-groups
 ```
 
 ### 2. 前端构建 (Frontend)
@@ -57,6 +57,8 @@ npm run dev
 ```bash
 # 开启开发模式（启用控制台及 HMR）
 export DEV_MODE=true
+# (可选) 如果前端运行在非 5173 端口，可以指定地址
+# export FRONTEND_URL=http://localhost:5174
 uv run python main.py
 ```
 
@@ -79,6 +81,32 @@ uv run python scripts/package_app.py
 
 > [!IMPORTANT]
 > **Windows .exe 说明**：由于 Nuitka 不支持跨平台交叉编译，如果您需要生成 Windows 可执行文件 (`.exe`)，**必须**在 Windows 环境（如 CMD 或 PowerShell）中运行上述命令。
+
+---
+
+## 🛡️ 代码质量与 CI
+
+项目配置了完整的 **GitHub Actions CI** 流水线，确保代码合规与构建稳定性。
+
+### 持续集成检查
+
+- **Frontend**: 自动执行依赖安装与生产构建验证。
+- **Backend**:
+  - `Black` & `Isort`: 自动化代码格式与导入优化检查。
+  - `Flake8`: 静态代码风格检查。
+  - `Mypy`: 严格的类型检查（基于 Python 3.12）。
+
+### 本地执行检查
+
+在提交代码前，建议运行以下命令进行本地验证：
+
+```bash
+# 一键运行后端所有检查
+uv run black --check . && uv run isort --check . && uv run flake8 . && uv run mypy --explicit-package-bases .
+
+# 运行前端构建检查
+cd frontend && npm install && npm run build
+```
 
 ---
 

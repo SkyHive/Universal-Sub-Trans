@@ -32,6 +32,7 @@ dev = [
 ]
 
 [tool.uv]
+python-version = "3.12"
 # Removed deprecated dev-dependencies field
 
 [tool.black]
