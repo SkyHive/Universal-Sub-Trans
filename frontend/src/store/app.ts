@@ -24,6 +24,11 @@ export const useAppStore = defineStore("app", {
       install_progress: 0,
       is_installing: false,
     },
+    appPaths: {
+      config: "",
+      logs: "",
+      libs: "",
+    },
   }),
   getters: {
     buttonText: (state) => {
@@ -157,6 +162,12 @@ export const useAppStore = defineStore("app", {
       this.showResumeModal = data.show;
       if (data.points !== undefined) this.resumePoints = data.points;
       if (data.path !== undefined) this.pendingVideoPath = data.path;
+    },
+    async fetchAppPaths() {
+      this.appPaths = await bridge.getAppPaths();
+    },
+    async openPath(type: string) {
+      await bridge.openPath(type);
     },
   },
 });

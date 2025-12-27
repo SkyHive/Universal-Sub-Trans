@@ -42,5 +42,10 @@ def setup_logger(name: str = "universal-sub") -> logging.Logger:
 
     return logger
 
+def get_log_file_path() -> str:
+    """Returns the absolute path of the log file."""
+    log_dir = user_log_dir("UniversalSub", "UniversalSub")
+    return os.path.join(log_dir, "app.log")
+
 # Global logger instance
 logger = setup_logger()

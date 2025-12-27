@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { RefreshCw, Cpu, Database, CheckCircle, AlertTriangle, Download } from 'lucide-vue-next';
+import { ref, onMounted } from 'vue';
+import { RefreshCw, Cpu, Database, CheckCircle, AlertTriangle, Download, FolderOpen, FileText } from 'lucide-vue-next';
 import { useAppStore } from '../store/app';
 
 defineProps<{
@@ -22,6 +22,14 @@ const handleManualCheck = async () => {
 const handleInstallDeps = async () => {
     await store.installDependencies();
 };
+
+const handleOpenPath = async (type: string) => {
+    await store.openPath(type);
+};
+
+onMounted(async () => {
+    await store.fetchAppPaths();
+});
 </script>
 
 <template>
@@ -104,7 +112,7 @@ const handleInstallDeps = async () => {
                         <div class="flex items-center justify-between text-sm font-bold uppercase tracking-widest">
                             <span class="truncate max-w-[80%]">{{ store.statusMessage || t.downloadingCudnn }}</span>
                             <span class="text-primary">{{ Math.round(store.systemStatus.install_progress)
-                            }}%</span>
+                                }}%</span>
                         </div>
                         <div class="w-full h-3 bg-accent/30 rounded-full overflow-hidden p-1 border border-white/5">
                             <div class="h-full bg-primary rounded-full transition-all duration-300 relative"
@@ -137,6 +145,62 @@ const handleInstallDeps = async () => {
             <div class="p-6 rounded-2xl bg-accent/20 border border-white/5">
                 <p class="text-xs leading-relaxed opacity-50">{{ t.gpuNote }}</p>
             </div>
+
+            <!-- Storage Locations Card -->
+            <section class="bg-card/20 p-8 rounded-[35px] border border-white/5 backdrop-blur-md space-y-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-xs font-black uppercase tracking-[0.2em] text-primary flex items-center">
+                        <FolderOpen class="w-4 h-4 mr-3" />
+                        {{ t.storageLocations }}
+                    </h3>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Config Path -->
+                    <div
+                        class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-black/20 border border-white/5 group hover:border-primary/20 transition-colors">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold uppercase opacity-40 mb-1">Configuration</p>
+                            <p class="text-xs font-mono truncate text-muted-foreground select-all">{{
+                                store.appPaths?.config || 'Loading...' }}</p>
+                        </div>
+                        <button @click="handleOpenPath('config')"
+                            class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Open Folder">
+                            <FolderOpen class="w-4 h-4 opacity-60 hover:opacity-100" />
+                        </button>
+                    </div>
+
+                    <!-- Logs Path -->
+                    <div
+                        class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-black/20 border border-white/5 group hover:border-primary/20 transition-colors">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold uppercase opacity-40 mb-1">Logs</p>
+                            <p class="text-xs font-mono truncate text-muted-foreground select-all">{{
+                                store.appPaths?.logs || 'Loading...' }}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button @click="handleOpenPath('logs')"
+                                class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Open Log File">
+                                <FileText class="w-4 h-4 opacity-60 hover:opacity-100" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Libs Path -->
+                    <div
+                        class="flex items-center justify-between gap-4 p-4 rounded-2xl bg-black/20 border border-white/5 group hover:border-primary/20 transition-colors">
+                        <div class="flex-1 min-w-0">
+                            <p class="text-xs font-bold uppercase opacity-40 mb-1">GPU Libraries</p>
+                            <p class="text-xs font-mono truncate text-muted-foreground select-all">{{
+                                store.appPaths?.libs || 'Loading...' }}</p>
+                        </div>
+                        <button @click="handleOpenPath('libs')"
+                            class="p-2 hover:bg-white/10 rounded-lg transition-colors" title="Open Folder">
+                            <FolderOpen class="w-4 h-4 opacity-60 hover:opacity-100" />
+                        </button>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
 </template>

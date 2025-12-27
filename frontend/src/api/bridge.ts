@@ -66,6 +66,14 @@ declare global {
           needs_install: boolean;
         }>;
         install_deps(): Promise<{ status: string }>;
+        get_app_paths(): Promise<{
+          config: string;
+          logs: string;
+          libs: string;
+        }>;
+        open_path(
+          path_type: string
+        ): Promise<{ status: string; message?: string }>;
       };
     };
     onBackendEvent: (event: string, data: any) => void;
@@ -200,5 +208,15 @@ export const bridge = {
   async installDeps(): Promise<any> {
     await waitForBridge();
     return await window.pywebview.api.install_deps();
+  },
+
+  async getAppPaths(): Promise<{ config: string; logs: string; libs: string }> {
+    await waitForBridge();
+    return await window.pywebview.api.get_app_paths();
+  },
+
+  async openPath(pathType: string): Promise<any> {
+    await waitForBridge();
+    return await window.pywebview.api.open_path(pathType);
   },
 };

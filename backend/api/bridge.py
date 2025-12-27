@@ -69,9 +69,56 @@ class ApiBridge:
         """
         Signals the dependency installation to cancel.
         """
-        logger.info("cancelling_dep_installation")
-        self._dep_cancel_flag.set()
         return {"status": "cancelling"}
+
+    def get_app_paths(self) -> dict:
+        """
+        Returns the paths for config, logs, and libs.
+        """
+        from backend.services.config_mgr import config_mgr
+        from backend.services.dep_mgr import dep_mgr
+        from backend.services.logger import get_log_file_path
+
+        # config is stored in user_config_dir
+        # But config_mgr doesn't expose the path publicly properly yet, let's reconstruct it
+        # or just assume standard appdirs path
+        from appdirs import user_config_dir
+        config_path = os.path.join(user_config_dir("UniversalSub", "UniversalSub"), "config.json")
+        
+        return {
+            "config": config_path,
+            "logs": get_log_file_path(),
+            "libs": dep_mgr.get_lib_dir()
+        }
+
+    def open_path(self, path_type: str) -> dict:
+        """
+        Opens the system file explorer at the requested location.
+        path_type: 'config', 'logs', 'libs'
+        """
+        paths = self.get_app_paths()
+        target = paths.get(path_type)
+        
+        if not target:
+            return {"status": "error", "message": "Invalid path type"}
+            
+        # If it's a file, open the folder containing it
+        if path_type in ['config', 'logs']:
+            target = os.path.dirname(target)
+            
+        try:
+            if not os.path.exists(target):
+                 os.makedirs(target, exist_ok=True)
+
+            if os.name == 'nt':
+                os.startfile(target)
+            else:
+                import subprocess
+                subprocess.Popen(['xdg-open', target])
+            return {"status": "success"}
+        except Exception as e:
+            logger.error(f"failed_to_open_path: {e}")
+            return {"status": "error", "message": str(e)}
 
     def get_config(self) -> dict:
         """
