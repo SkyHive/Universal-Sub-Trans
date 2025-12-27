@@ -1735,10 +1735,14 @@ dependencies = [
     { name = "ffmpeg-python" },
     { name = "openai" },
     { name = "pydantic-settings" },
-    { name = "pyqt6" },
-    { name = "pyqt6-webengine" },
     { name = "python-json-logger" },
     { name = "pywebview" },
+]
+
+[package.optional-dependencies]
+gui-linux = [
+    { name = "pyqt6" },
+    { name = "pyqt6-webengine" },
     { name = "qtpy" },
 ]
 
@@ -1759,12 +1763,13 @@ requires-dist = [
     { name = "ffmpeg-python", specifier = ">=0.2.0" },
     { name = "openai", specifier = ">=1.0.0" },
     { name = "pydantic-settings", specifier = ">=2.0.0" },
-    { name = "pyqt6", specifier = ">=6.0.0" },
-    { name = "pyqt6-webengine", specifier = ">=6.0.0" },
+    { name = "pyqt6", marker = "extra == 'gui-linux'", specifier = ">=6.0.0" },
+    { name = "pyqt6-webengine", marker = "extra == 'gui-linux'", specifier = ">=6.0.0" },
     { name = "python-json-logger", specifier = ">=2.0.7" },
     { name = "pywebview", specifier = ">=5.0.0" },
-    { name = "qtpy", specifier = ">=2.4.0" },
+    { name = "qtpy", marker = "extra == 'gui-linux'", specifier = ">=2.4.0" },
 ]
+provides-extras = ["gui-linux"]
 
 [package.metadata.requires-dev]
 dev = [
