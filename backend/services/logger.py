@@ -5,8 +5,6 @@ from logging.handlers import RotatingFileHandler
 from pythonjsonlogger import jsonlogger
 from appdirs import user_log_dir
 
-from backend.services.platform_mgr import PlatformManager
-
 def setup_logger(name: str = "universal-sub") -> logging.Logger:
     """
     Sets up a logger with both console and rotating file handlers.
@@ -20,7 +18,13 @@ def setup_logger(name: str = "universal-sub") -> logging.Logger:
         return logger
 
     # Log directory setup: local 'logs' folder
-    root = PlatformManager.get_app_root()
+    # Detect root path without importing PlatformManager to avoid circular imports
+    if getattr(sys, 'frozen', False):
+        root = os.path.dirname(sys.executable)
+    else:
+        # File is at backend/services/logger.py, root is 3 levels up
+        root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        
     log_dir = os.path.join(root, "logs")
     os.makedirs(log_dir, exist_ok=True)
     log_file = os.path.join(log_dir, "app.log")

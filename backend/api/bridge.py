@@ -104,6 +104,17 @@ class ApiBridge:
         if self._window:
             self._window.move(x, y)
 
+    def get_size(self) -> dict:
+        """Returns current window size."""
+        if self._window:
+            return {"width": self._window.width, "height": self._window.height}
+        return {"width": 0, "height": 0}
+
+    def resize_window(self, width: int, height: int) -> None:
+        """Resizes the window."""
+        if self._window:
+            self._window.resize(width, height)
+
     def check_task_resume_point(self, video_path: str) -> dict:
         """
         Detects if temporary audio or transcript files exist for the given video.

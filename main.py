@@ -107,6 +107,7 @@ def main() -> None:
         background_color="#000000",
         frameless=True,
         resizable=True, # Optimization 2: Enable resizing
+        easy_drag=False,
     )
 
     bridge.set_window(window)

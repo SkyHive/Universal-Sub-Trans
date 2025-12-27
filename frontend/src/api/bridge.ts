@@ -57,6 +57,8 @@ declare global {
         close(): void;
         get_position(): Promise<{ x: number; y: number }>;
         move_window(x: number, y: number): void;
+        get_size(): Promise<{ width: number; height: number }>;
+        resize_window(width: number, height: number): void;
         check_dep_status(): Promise<{
           gpu_vendor: string;
           can_accelerate: boolean;
@@ -167,6 +169,16 @@ export const bridge = {
   async moveWindow(x: number, y: number): Promise<void> {
     await waitForBridge();
     window.pywebview.api.move_window(x, y);
+  },
+
+  async getSize(): Promise<{ width: number; height: number }> {
+    await waitForBridge();
+    return await window.pywebview.api.get_size();
+  },
+
+  async resizeWindow(width: number, height: number): Promise<void> {
+    await waitForBridge();
+    window.pywebview.api.resize_window(width, height);
   },
 
   async checkDepStatus(): Promise<any> {
