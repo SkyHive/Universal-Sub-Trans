@@ -1,7 +1,9 @@
-import subprocess
-import platform
 import os
+import platform
+import subprocess
+
 from backend.services.logger import logger
+
 
 class HardwareManager:
     """
@@ -14,7 +16,7 @@ class HardwareManager:
         Returns: 'nvidia', 'amd', 'intel', or 'unknown'.
         """
         system = platform.system().lower()
-        
+
         try:
             if system == "windows":
                 return self._detect_windows_gpu()
@@ -24,7 +26,7 @@ class HardwareManager:
                 return "apple"  # Metal / M-series
         except Exception as e:
             logger.error(f"gpu_detection_failed: {e}")
-            
+
         return "unknown"
 
     def _detect_windows_gpu(self) -> str:
@@ -33,14 +35,20 @@ class HardwareManager:
         cmd = ["wmic", "path", "win32_videocontroller", "get", "name"]
         try:
             startupinfo = None
-            if platform.system().lower() == "windows":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = subprocess.SW_HIDE
+            if os.name == "nt":
+                startupinfo = subprocess.STARTUPINFO()  # type: ignore
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # type: ignore
+                startupinfo.wShowWindow = subprocess.SW_HIDE  # type: ignore
 
             # We explicitly set cwd to a safe local directory to avoid CMD UNC path warnings
-            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, cwd="C:\\", startupinfo=startupinfo).decode("utf-8").lower()
-            
+            output = (
+                subprocess.check_output(
+                    cmd, stderr=subprocess.STDOUT, cwd="C:\\", startupinfo=startupinfo
+                )
+                .decode("utf-8")
+                .lower()
+            )
+
             if "nvidia" in output:
                 return "nvidia"
             if "amd" in output or "radeon" in output:
@@ -54,7 +62,11 @@ class HardwareManager:
     def _detect_linux_gpu(self) -> str:
         """Helper to detect GPU on Linux using lspci."""
         try:
-            output = subprocess.check_output("lspci | grep -i vga", shell=True).decode("utf-8").lower()
+            output = (
+                subprocess.check_output("lspci | grep -i vga", shell=True)
+                .decode("utf-8")
+                .lower()
+            )
             if "nvidia" in output:
                 return "nvidia"
             if "amd" in output or "ati" in output:
@@ -68,5 +80,6 @@ class HardwareManager:
     def is_cuda_available(self) -> bool:
         """Quick check if there is an NVIDIA GPU."""
         return self.detect_gpu_vendor() == "nvidia"
+
 
 hardware_mgr = HardwareManager()

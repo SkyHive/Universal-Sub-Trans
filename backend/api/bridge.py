@@ -1,13 +1,15 @@
-import threading
 import os
-import time
+import threading
 from typing import Optional
+
 import webview
-from backend.services.logger import logger
-from backend.services.config_mgr import config_mgr
-from backend.core.whisper_svc import whisper_svc
+
 from backend.core.ai_engine import ai_engine
 from backend.core.srt_utils import save_srt
+from backend.core.whisper_svc import whisper_svc
+from backend.services.config_mgr import config_mgr
+from backend.services.logger import logger
+
 
 class ApiBridge:
     """
@@ -21,7 +23,7 @@ class ApiBridge:
         self._cancel_flag = threading.Event()
         self._dep_cancel_flag = threading.Event()
 
-    def set_window(self, window: webview.Window) -> None:
+    def set_window(self, window: Optional[webview.Window]) -> None:
         """
         Sets the webview window instance.
         """
@@ -31,14 +33,14 @@ class ApiBridge:
         """
         Checks if hardware is NVIDIA and if dependencies are missing.
         """
-        from backend.services.hardware_mgr import hardware_mgr
         from backend.services.dep_mgr import dep_mgr
-        
+        from backend.services.hardware_mgr import hardware_mgr
+
         vendor = hardware_mgr.detect_gpu_vendor()
         return {
             "gpu_vendor": vendor,
             "can_accelerate": vendor == "nvidia",
-            "needs_install": vendor == "nvidia" and dep_mgr.check_missing_deps()
+            "needs_install": vendor == "nvidia" and dep_mgr.check_missing_deps(),
         }
 
     def install_deps(self) -> dict:
@@ -46,21 +48,37 @@ class ApiBridge:
         Triggers the download and installation of dependencies.
         """
         from backend.services.dep_mgr import dep_mgr
-        
+
         self._dep_cancel_flag.clear()
 
         def _on_progress(progress: float, message: str):
-            self._notify_frontend("dep_install_progress", {"progress": progress, "message": message, "stage": "installing"})
+            self._notify_frontend(
+                "dep_install_progress",
+                {"progress": progress, "message": message, "stage": "installing"},
+            )
 
         def _run_install():
-            success = dep_mgr.download_deps(progress_callback=_on_progress, cancel_event=self._dep_cancel_flag)
+            success = dep_mgr.download_deps(
+                progress_callback=_on_progress, cancel_event=self._dep_cancel_flag
+            )
             if success:
-                self._notify_frontend("dep_install_completed", {"message": "Installation successful. Please restart application to enable GPU."})
+                self._notify_frontend(
+                    "dep_install_completed",
+                    {
+                        "message": "Installation successful. Please restart application to enable GPU."
+                    },
+                )
             else:
                 if self._dep_cancel_flag.is_set():
-                    self._notify_frontend("dep_install_failed", {"message": "Installation cancelled by user."})
+                    self._notify_frontend(
+                        "dep_install_failed",
+                        {"message": "Installation cancelled by user."},
+                    )
                 else:
-                    self._notify_frontend("dep_install_failed", {"message": "Download failed. Check your internet connection."})
+                    self._notify_frontend(
+                        "dep_install_failed",
+                        {"message": "Download failed. Check your internet connection."},
+                    )
 
         threading.Thread(target=_run_install, daemon=True).start()
         return {"status": "started"}
@@ -75,20 +93,22 @@ class ApiBridge:
         """
         Returns the paths for config, logs, and libs.
         """
-        from backend.services.config_mgr import config_mgr
-        from backend.services.dep_mgr import dep_mgr
-        from backend.services.logger import get_log_file_path
-
         # config is stored in user_config_dir
         # But config_mgr doesn't expose the path publicly properly yet, let's reconstruct it
         # or just assume standard appdirs path
         from appdirs import user_config_dir
-        config_path = os.path.join(user_config_dir("UniversalSub", "UniversalSub"), "config.json")
-        
+
+        from backend.services.dep_mgr import dep_mgr
+        from backend.services.logger import get_log_file_path
+
+        config_path = os.path.join(
+            user_config_dir("UniversalSub", "UniversalSub"), "config.json"
+        )
+
         return {
             "config": config_path,
             "logs": get_log_file_path(),
-            "libs": dep_mgr.get_lib_dir()
+            "libs": dep_mgr.get_lib_dir(),
         }
 
     def open_path(self, path_type: str) -> dict:
@@ -98,23 +118,24 @@ class ApiBridge:
         """
         paths = self.get_app_paths()
         target = paths.get(path_type)
-        
+
         if not target:
             return {"status": "error", "message": "Invalid path type"}
-            
+
         # If it's a file, open the folder containing it
-        if path_type in ['config', 'logs']:
+        if path_type in ["config", "logs"]:
             target = os.path.dirname(target)
-            
+
         try:
             if not os.path.exists(target):
-                 os.makedirs(target, exist_ok=True)
+                os.makedirs(target, exist_ok=True)
 
-            if os.name == 'nt':
-                os.startfile(target)
+            if os.name == "nt":
+                os.startfile(target)  # type: ignore
             else:
                 import subprocess
-                subprocess.Popen(['xdg-open', target])
+
+                subprocess.Popen(["xdg-open", target])
             return {"status": "success"}
         except Exception as e:
             logger.error(f"failed_to_open_path: {e}")
@@ -140,9 +161,11 @@ class ApiBridge:
         """
         if not self._window:
             return None
-        
+
         file_types = ("Video files (*.mp4;*.mkv;*.avi)", "All files (*.*)")
-        result = self._window.create_file_dialog(webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types)
+        result = self._window.create_file_dialog(
+            webview.OPEN_DIALOG, allow_multiple=False, file_types=file_types
+        )
         return result[0] if result else None
 
     def minimize(self) -> None:
@@ -193,15 +216,17 @@ class ApiBridge:
         """
         audio_path = video_path + ".temp.wav"
         transcript_path = video_path + ".temp.json"
-        
+
         return {
             "has_audio": os.path.exists(audio_path),
-            "has_transcript": os.path.exists(transcript_path)
+            "has_transcript": os.path.exists(transcript_path),
         }
 
-    def start_task(self, video_path: str, target_lang: str = "Chinese", resume_mode: str = "fresh") -> dict:
+    def start_task(
+        self, video_path: str, target_lang: str = "Chinese", resume_mode: str = "fresh"
+    ) -> dict:
         """
-        Starts the subtitle generation process. 
+        Starts the subtitle generation process.
         resume_mode: 'fresh', 'use_audio', 'use_transcript'
         """
         if self._is_processing:
@@ -212,7 +237,11 @@ class ApiBridge:
 
         self._is_processing = True
         self._cancel_flag.clear()
-        threading.Thread(target=self._run_task, args=(video_path, target_lang, resume_mode), daemon=True).start()
+        threading.Thread(
+            target=self._run_task,
+            args=(video_path, target_lang, resume_mode),
+            daemon=True,
+        ).start()
         return {"status": "started"}
 
     def _run_task(self, video_path: str, target_lang: str, resume_mode: str) -> None:
@@ -227,70 +256,124 @@ class ApiBridge:
             # --- STEP 1: Transcription ---
             if resume_mode == "use_transcript" and os.path.exists(transcript_path):
                 logger.info("resuming_from_transcript_cache")
-                self._notify_frontend("status_update", {"message": "Loading saved transcript...", "progress": 25, "stage": "transcribing"})
+                self._notify_frontend(
+                    "status_update",
+                    {
+                        "message": "Loading saved transcript...",
+                        "progress": 25,
+                        "stage": "transcribing",
+                    },
+                )
                 import json
-                with open(transcript_path, 'r', encoding='utf-8') as f:
+
+                with open(transcript_path, "r", encoding="utf-8") as f:
                     segments = json.load(f)
             else:
+
                 def _status_cb(msg: str, stage: str = "loading_model"):
-                    self._notify_frontend("status_update", {"message": msg, "progress": 15, "stage": stage})
+                    self._notify_frontend(
+                        "status_update",
+                        {"message": msg, "progress": 15, "stage": stage},
+                    )
 
                 # Directly transcribe the video file
-                input_media = audio_path if (resume_mode == "use_audio" and os.path.exists(audio_path)) else video_path
-                
-                # Check for cancellation before starting
-                if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
+                input_media = (
+                    audio_path
+                    if (resume_mode == "use_audio" and os.path.exists(audio_path))
+                    else video_path
+                )
 
-                for segment in whisper_svc.transcribe(input_media, status_callback=_status_cb):
-                    if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
+                # Check for cancellation before starting
+                if self._cancel_flag.is_set():
+                    raise InterruptedError("cancelled_by_user")
+
+                for segment in whisper_svc.transcribe(
+                    input_media, status_callback=_status_cb
+                ):
+                    if self._cancel_flag.is_set():
+                        raise InterruptedError("cancelled_by_user")
                     segments.append(segment)
                     progress = min(20 + len(segments), 60)
-                    self._notify_frontend("status_update", {"message": f"Transcribed {len(segments)} segments...", "progress": progress, "stage": "transcribing"})
-                
+                    self._notify_frontend(
+                        "status_update",
+                        {
+                            "message": f"Transcribed {len(segments)} segments...",
+                            "progress": progress,
+                            "stage": "transcribing",
+                        },
+                    )
+
                 if not segments:
                     logger.warning("no_speech_detected")
-                    self._notify_frontend("task_failed", {"message": "No speech detected in this media file."})
+                    self._notify_frontend(
+                        "task_failed",
+                        {"message": "No speech detected in this media file."},
+                    )
                     return
 
                 # Save checkpoint for source segments
-                self._notify_frontend("status_update", {"message": "Transcription finished, saving checkpoint...", "progress": 65, "stage": "transcribing"})
+                self._notify_frontend(
+                    "status_update",
+                    {
+                        "message": "Transcription finished, saving checkpoint...",
+                        "progress": 65,
+                        "stage": "transcribing",
+                    },
+                )
                 try:
                     import json
-                    with open(transcript_path, 'w', encoding='utf-8') as f:
+
+                    with open(transcript_path, "w", encoding="utf-8") as f:
                         json.dump(segments, f, ensure_ascii=False, indent=2)
                     logger.info("transcript_checkpoint_saved")
                 except Exception as ex:
                     logger.error(f"failed_to_save_checkpoint: {ex}")
 
             # --- STEP 3: Translation ---
-            if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
-            self._notify_frontend("status_update", {"message": "Translating...", "progress": 70, "stage": "translating"})
+            if self._cancel_flag.is_set():
+                raise InterruptedError("cancelled_by_user")
+            self._notify_frontend(
+                "status_update",
+                {"message": "Translating...", "progress": 70, "stage": "translating"},
+            )
             batch_size = config_mgr.config.ai.batch_size
             results = []
-            
+
             for i in range(0, len(segments), batch_size):
-                if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
-                batch = segments[i:i + batch_size]
+                if self._cancel_flag.is_set():
+                    raise InterruptedError("cancelled_by_user")
+                batch = segments[i : i + batch_size]
                 texts = [s["text"] for s in batch]
                 translations = ai_engine.translate_batch(texts, target_lang)
-                
+
                 for j, trans in enumerate(translations):
                     if j < len(batch):
                         batch[j]["translated_text"] = trans
-                
+
                 results.extend(batch)
                 progress = 70 + int((i / len(segments)) * 25)
-                self._notify_frontend("status_update", {"message": f"Translated {len(results)}/{len(segments)}...", "progress": progress, "stage": "translating"})
+                self._notify_frontend(
+                    "status_update",
+                    {
+                        "message": f"Translated {len(results)}/{len(segments)}...",
+                        "progress": progress,
+                        "stage": "translating",
+                    },
+                )
 
             # --- STEP 4: Save SRT ---
-            if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
-            self._notify_frontend("status_update", {"message": "Saving SRT file...", "progress": 95, "stage": "saving"})
-            
+            if self._cancel_flag.is_set():
+                raise InterruptedError("cancelled_by_user")
+            self._notify_frontend(
+                "status_update",
+                {"message": "Saving SRT file...", "progress": 95, "stage": "saving"},
+            )
+
             # Generate SRT path: video.mp4 -> video.srt or video.zh.srt
             base_path = os.path.splitext(video_path)[0]
             # Use a language suffix if possible, or just .srt
             srt_path = f"{base_path}.srt"
-            
+
             try:
                 save_srt(results, srt_path)
                 logger.info(f"srt_saved_successfully: {srt_path}")
@@ -298,11 +381,15 @@ class ApiBridge:
                 logger.error(f"failed_to_save_srt: {se}")
 
             # 5. Finalize
-            self._notify_frontend("task_completed", {"segments": results, "srt_path": srt_path})
+            self._notify_frontend(
+                "task_completed", {"segments": results, "srt_path": srt_path}
+            )
 
         except InterruptedError:
             logger.info("task_cancelled_successfully")
-            self._notify_frontend("task_failed", {"message": "Task cancelled by user", "cancelled": True})
+            self._notify_frontend(
+                "task_failed", {"message": "Task cancelled by user", "cancelled": True}
+            )
         except Exception as e:
             logger.error(f"task_execution_failed: {e}", exc_info=True)
             self._notify_frontend("task_failed", {"message": str(e)})
@@ -316,5 +403,8 @@ class ApiBridge:
         if self._window:
             # We assume a global function 'onBackendEvent' exists in JS
             import json
+
             payload = json.dumps(data)
-            self._window.evaluate_js(f"window.onBackendEvent('{event_name}', {payload})")
+            self._window.evaluate_js(
+                f"window.onBackendEvent('{event_name}', {payload})"
+            )

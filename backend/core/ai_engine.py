@@ -1,7 +1,10 @@
 from typing import List
+
 from openai import OpenAI
-from backend.services.logger import logger
+
 from backend.services.config_mgr import config_mgr
+from backend.services.logger import logger
+
 
 class AIEngine:
     """
@@ -14,25 +17,26 @@ class AIEngine:
     def _get_client(self) -> OpenAI:
         """
         Returns a configured OpenAI client.
-        
-        Bypasses system proxies for local connections to avoid issues 
+
+        Bypasses system proxies for local connections to avoid issues
         with system-wide proxies on Windows/WSL.
         """
         import httpx
+
         config = config_mgr.config.ai
         logger.debug(f"initializing_ai_client: base_url={config.base_url}")
-        
+
         # trust_env=False prevents httpx from looking at system proxy environment variables
         # Set a longer timeout (60s) for local models which can be slow
         http_client = httpx.Client(trust_env=False, timeout=60.0)
-        
+
         return OpenAI(
-            api_key=config.api_key,
-            base_url=config.base_url,
-            http_client=http_client
+            api_key=config.api_key, base_url=config.base_url, http_client=http_client
         )
 
-    def translate_batch(self, lines: List[str], target_lang: str = "Chinese") -> List[str]:
+    def translate_batch(
+        self, lines: List[str], target_lang: str = "Chinese"
+    ) -> List[str]:
         """
         Translates a batch of subtitle lines to the target language.
         """
@@ -55,21 +59,22 @@ class AIEngine:
                 model=config.model_name,
                 messages=[
                     {"role": "system", "content": config.system_prompt},
-                    {"role": "user", "content": batch_text}
+                    {"role": "user", "content": batch_text},
                 ],
-                temperature=config.temperature
+                temperature=config.temperature,
             )
 
             result_text = response.choices[0].message.content or ""
             logger.debug(f"ai_raw_response: {repr(result_text)}")
-            
+
             # Parsing Step 1: Extract text by matching <L数字>
             import re
-            cleaned_lines = [None] * len(lines)
-            
+
+            cleaned_lines: list[str | None] = [None] * len(lines)
+
             # Find all patterns like <L1> Text
-            matches = re.findall(r'<L(\d+)>(.*?)(?=<L\d+>|$)', result_text, re.DOTALL)
-            
+            matches = re.findall(r"<L(\d+)>(.*?)(?=<L\d+>|$)", result_text, re.DOTALL)
+
             for index_str, content in matches:
                 try:
                     idx = int(index_str) - 1
@@ -77,31 +82,34 @@ class AIEngine:
                         cleaned_lines[idx] = content.strip()
                 except ValueError:
                     continue
-            
-            # Fill missing lines if parsing failed for some
+
             final_lines = []
-            missing_indices = []
-            for i, line in enumerate(cleaned_lines):
-                if line is None:
+            missing_indices: list[int] = []
+            for i, seg_text in enumerate(cleaned_lines):
+                if seg_text is None:
                     missing_indices.append(i)
-                    final_lines.append(lines[i]) # Fallback to original
+                    final_lines.append(lines[i])  # Fallback to original
                 else:
-                    final_lines.append(line)
+                    final_lines.append(seg_text)
 
             # If count mismatch or too many missing, try line-by-line fallback if config allows
             if len(missing_indices) > 0:
-                logger.warning(f"batch_parsing_partial_failure: missing {len(missing_indices)} lines. falling_back_to_line_by_line")
+                logger.warning(
+                    f"batch_parsing_partial_failure: missing {len(missing_indices)} lines. falling_back_to_line_by_line"
+                )
                 for i in missing_indices:
                     try:
                         line_resp = client.chat.completions.create(
                             model=config.model_name,
                             messages=[
                                 {"role": "system", "content": config.fallback_prompt},
-                                {"role": "user", "content": lines[i]}
+                                {"role": "user", "content": lines[i]},
                             ],
-                            temperature=config.temperature
+                            temperature=config.temperature,
                         )
-                        final_lines[i] = (line_resp.choices[0].message.content or lines[i]).strip()
+                        final_lines[i] = (
+                            line_resp.choices[0].message.content or lines[i]
+                        ).strip()
                     except Exception as le:
                         logger.error(f"line_fallback_failed for index {i}: {le}")
 
@@ -112,6 +120,7 @@ class AIEngine:
             logger.error(f"ai_translation_failed: {e}", exc_info=True)
             # Re-raise exception to alert the user immediately
             raise e
+
 
 # Global AI engine instance
 ai_engine = AIEngine()

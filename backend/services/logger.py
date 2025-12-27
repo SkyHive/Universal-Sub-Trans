@@ -2,15 +2,16 @@ import logging
 import os
 import sys
 from logging.handlers import RotatingFileHandler
-from pythonjsonlogger import jsonlogger
+
 from appdirs import user_log_dir
+
 
 def setup_logger(name: str = "universal-sub") -> logging.Logger:
     """
     Sets up a logger with both console and rotating file handlers.
     """
     logger = logging.getLogger(name)
-    
+
     # Default level, will be updated by config_mgr
     logger.setLevel(logging.INFO)
 
@@ -42,10 +43,12 @@ def setup_logger(name: str = "universal-sub") -> logging.Logger:
 
     return logger
 
+
 def get_log_file_path() -> str:
     """Returns the absolute path of the log file."""
     log_dir = user_log_dir("UniversalSub", "UniversalSub")
     return os.path.join(log_dir, "app.log")
+
 
 # Global logger instance
 logger = setup_logger()

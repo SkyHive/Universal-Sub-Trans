@@ -1,8 +1,9 @@
 import os
+import platform
 import shutil
 import subprocess
 import sys
-import platform
+
 
 def run_command(cmd, cwd=None):
     print(f"Executing: {cmd}")
@@ -12,6 +13,7 @@ def run_command(cmd, cwd=None):
         print(f"Error during command: {cmd}")
         sys.exit(e.returncode)
 
+
 def build_frontend():
     print("--- Building Frontend ---")
     frontend_dir = os.path.abspath("frontend")
@@ -20,20 +22,21 @@ def build_frontend():
     else:
         print("node_modules not found, running npm install...")
         run_command("npm install && npm run build", cwd=frontend_dir)
-    
+
     # Verification: vite is configured to output to ../backend/dist
     dest_dist = os.path.join(os.getcwd(), "backend", "dist")
     if not os.path.exists(dest_dist):
         print(f"Error: Build completed but {dest_dist} was not found.")
         sys.exit(1)
-    
+
     print(f"Frontend build verified in: {dest_dist}")
+
 
 def package_app():
     print("--- Packaging with Nuitka ---")
-    
+
     is_windows = platform.system().lower() == "windows"
-    
+
     # Base command
     # We use 'uv run' to ensure Nuitka uses the project's virtual environment
     cmd = [
@@ -41,7 +44,9 @@ def package_app():
         "--standalone",
         "--show-progress",
         "--plugin-enable=pywebview",
-        "--plugin-enable=gi" if not is_windows else "", # Helps with GTK/GObject dependencies on Linux
+        (
+            "--plugin-enable=gi" if not is_windows else ""
+        ),  # Helps with GTK/GObject dependencies on Linux
         # Force include packages that Nuitka might miss due to dynamic imports
         "--include-package=appdirs",
         "--include-package=pythonjsonlogger",
@@ -51,7 +56,7 @@ def package_app():
         "--include-package=pydantic_settings",
         "--include-package=openai",
         "--include-package=httpx",
-        "--include-package=onnxruntime", # Critical for VAD
+        "--include-package=onnxruntime",  # Critical for VAD
         # Include data files for frontend and resources
         "--include-data-dir=backend/dist=backend/dist",
     ]
@@ -59,28 +64,33 @@ def package_app():
     # VAD Model handling: faster-whisper needs the silero_vad onnx file
     try:
         import faster_whisper
+
         fw_path = os.path.dirname(faster_whisper.__file__)
         vad_model_path = os.path.join(fw_path, "assets", "silero_vad_v6.onnx")
         if os.path.exists(vad_model_path):
             # Tell Nuitka to put it in faster_whisper/assets/ in the distribution
-            cmd.append(f"--include-data-file={vad_model_path}=faster_whisper/assets/silero_vad_v6.onnx")
+            cmd.append(
+                f"--include-data-file={vad_model_path}=faster_whisper/assets/silero_vad_v6.onnx"
+            )
             print(f"Including VAD model: {vad_model_path}")
         else:
             print(f"Warning: VAD model not found at {vad_model_path}")
     except ImportError:
-        print("Warning: faster_whisper not found in current environment, skipping VAD model inclusion.")
+        print(
+            "Warning: faster_whisper not found in current environment, skipping VAD model inclusion."
+        )
 
     # Icon handling
     icon_path = "resources/icon.ico"
     if not os.path.exists(icon_path):
         icon_path = "icon.ico"
-    
+
     if os.path.exists(icon_path) and is_windows:
         cmd.append(f"--windows-icon-from-ico={icon_path}")
 
     # Optimized Windows-specific flags
     if is_windows:
-        cmd.append("--windows-console-mode=disable") # Hide console for GUI
+        cmd.append("--windows-console-mode=disable")  # Hide console for GUI
         # cmd.append("--onefile") # Uncomment if you want a single .exe
     else:
         # On Linux, PyQt6 is often needed as a backend for pywebview
@@ -88,20 +98,23 @@ def package_app():
 
     # If resources directory exists and has content (ignoring hidden files)
     if os.path.exists("resources"):
-        has_data = any(not f.startswith('.') for f in os.listdir("resources"))
+        has_data = any(not f.startswith(".") for f in os.listdir("resources"))
         if has_data:
             cmd.append("--include-data-dir=resources=resources")
 
     cmd.append("main.py")
-    
+
     # Filter out empty strings
     cmd = [c for c in cmd if c]
-    
+
     full_cmd = " ".join(cmd)
     run_command(full_cmd)
-    
+
     if is_windows:
-        create_windows_installer("main.dist", icon_path if os.path.exists(icon_path) else None)
+        create_windows_installer(
+            "main.dist", icon_path if os.path.exists(icon_path) else None
+        )
+
 
 def create_windows_installer(dist_dir, icon_path=None):
     print("--- Creating Windows Installer ---")
@@ -165,30 +178,33 @@ end;
     iss_file = "unisub_setup.iss"
     with open(iss_file, "w", encoding="utf-8") as f:
         f.write(iss_template)
-    
+
     print(f"Inno Setup script generated: {iss_file}")
-    
+
     # Try to run ISCC (Inno Setup Compiler)
     # Common paths for ISCC
     iscc_paths = [
-        "iscc", # If in PATH
+        "iscc",  # If in PATH
         r"C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe",
         r"C:\\Program Files\\Inno Setup 6\\ISCC.exe",
     ]
-    
+
     compiler = None
     for path in iscc_paths:
         if shutil.which(path) or os.path.exists(path):
             compiler = path
             break
-            
+
     if compiler:
         print(f"Found Inno Setup Compiler: {compiler}")
         run_command(f'"{compiler}" {iss_file}')
         print("Installer created successfully!")
     else:
-        print("Warning: Inno Setup Compiler (ISCC.exe) not found. Please install it to build the installer.")
+        print(
+            "Warning: Inno Setup Compiler (ISCC.exe) not found. Please install it to build the installer."
+        )
         print(f"You can still manualy compile {iss_file} using the Inno Setup GUI.")
+
 
 if __name__ == "__main__":
     build_frontend()
@@ -199,4 +215,6 @@ if __name__ == "__main__":
         print("Installer (if compiled) can be found in the current directory.")
     else:
         print("Resulting binary can be found in 'main.dist/'")
-        print("Tip: To build a Windows .exe, you MUST run this script on a Windows machine.")
+        print(
+            "Tip: To build a Windows .exe, you MUST run this script on a Windows machine."
+        )

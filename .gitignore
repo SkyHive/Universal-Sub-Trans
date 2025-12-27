@@ -7,3 +7,4 @@ dist/
 *.build/
 *.dist/
 logs/
+.mypy_cache/

@@ -1,10 +1,13 @@
 import json
-import os
 import logging
+import os
 from typing import Any
+
 from appdirs import user_config_dir
+
 from backend.models.schema import GlobalConfig
 from backend.services.logger import logger
+
 
 class ConfigManager:
     """
@@ -42,7 +45,7 @@ class ConfigManager:
                     return GlobalConfig(**data)
             except Exception as e:
                 logger.error(f"failed_to_load_config: {e}", exc_info=True)
-        
+
         # Return default config if file doesn't exist or is invalid
         return GlobalConfig()
 
@@ -65,9 +68,9 @@ class ConfigManager:
             updates (dict[str, Any]): Dictionary of updates to apply.
         """
         logger.info(f"incoming_config_update_keys: {list(updates.keys())}")
-        
+
         config_dict = self.config.model_dump()
-        
+
         def deep_update(d: dict, u: dict) -> dict:
             for k, v in u.items():
                 if isinstance(v, dict) and k in d and isinstance(d[k], dict):
@@ -77,12 +80,17 @@ class ConfigManager:
             return d
 
         updated_dict = deep_update(config_dict, updates)
-        
+
         # Explicitly ensure language is preserved during merge from updates
-        if 'app' in updates and isinstance(updates['app'], dict) and 'language' in updates['app']:
-            new_lang = updates['app']['language']
-            if 'app' not in updated_dict: updated_dict['app'] = {}
-            updated_dict['app']['language'] = new_lang
+        if (
+            "app" in updates
+            and isinstance(updates["app"], dict)
+            and "language" in updates["app"]
+        ):
+            new_lang = updates["app"]["language"]
+            if "app" not in updated_dict:
+                updated_dict["app"] = {}
+            updated_dict["app"]["language"] = new_lang
             logger.info(f"forcing_language_update_to: {new_lang}")
 
         try:
@@ -93,6 +101,7 @@ class ConfigManager:
         except Exception as e:
             logger.error(f"config_validation_failed: {e}")
             raise
+
 
 # Global config manager instance
 config_mgr = ConfigManager()
