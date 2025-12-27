@@ -14,24 +14,23 @@ const emit = defineEmits<{
 }>();
 
 const store = useAppStore();
-const selectedFilePath = ref<string | null>(null);
 
 const handleSelectFile = async () => {
     const path = await bridge.selectFile();
     if (path) {
-        selectedFilePath.value = path;
+        store.setSelectedFile(path);
     }
 };
 
 const handleStart = async () => {
-    if (!selectedFilePath.value) return;
+    if (!store.selectedFilePath) return;
 
     // Check if we can resume
-    const points = await store.checkResumePoint(selectedFilePath.value);
+    const points = await store.checkResumePoint(store.selectedFilePath);
     if (points.has_audio || points.has_transcript) {
-        emit('showResume', { points, path: selectedFilePath.value });
+        emit('showResume', { points, path: store.selectedFilePath });
     } else {
-        await store.startTask(selectedFilePath.value, props.currentLang === 'zh' ? 'Chinese' : 'English', "fresh");
+        await store.startTask(store.selectedFilePath, props.currentLang === 'zh' ? 'Chinese' : 'English', "fresh");
     }
 };
 
@@ -40,7 +39,6 @@ const handleCancel = async () => {
 };
 
 defineExpose({
-    selectedFilePath,
     handleStart
 });
 </script>
@@ -59,7 +57,7 @@ defineExpose({
                 class="absolute inset-0 bg-gradient-to-tr from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700">
             </div>
 
-            <div v-if="!selectedFilePath" class="relative z-10 flex flex-col items-center">
+            <div v-if="!store.selectedFilePath" class="relative z-10 flex flex-col items-center">
                 <div
                     class="w-20 h-20 bg-accent rounded-[30px] flex items-center justify-center mb-8 text-primary shadow-2xl group-hover:rotate-6 transition-transform duration-500">
                     <FileVideo class="w-10 h-10" />
@@ -74,15 +72,15 @@ defineExpose({
                     <CheckCircle class="w-10 h-10" />
                 </div>
                 <p class="text-2xl font-bold italic truncate max-w-lg mb-2">{{
-                    selectedFilePath.split('\\').pop()?.split('/').pop() }}</p>
-                <button @click.stop="selectedFilePath = null"
+                    store.selectedFilePath.split('\\').pop()?.split('/').pop() }}</p>
+                <button @click.stop="store.setSelectedFile(null)"
                     class="text-sm font-bold text-primary hover:text-primary/80 transition-colors uppercase tracking-widest mt-4">{{
                         t.changeVideo }}</button>
             </div>
         </div>
 
         <!-- Action -->
-        <div v-if="selectedFilePath" class="space-y-8 animate-in slide-in-from-bottom duration-500">
+        <div v-if="store.selectedFilePath" class="space-y-8 animate-in slide-in-from-bottom duration-500">
             <div class="flex items-center justify-between gap-10">
                 <button @click="handleStart" :disabled="store.isProcessing"
                     class="flex-1 py-5 bg-primary text-primary-foreground rounded-[25px] font-black text-xl flex items-center justify-center space-x-4 shadow-2xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:translate-y-0 transition-all duration-300 min-w-fit">

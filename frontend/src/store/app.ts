@@ -9,6 +9,14 @@ export const useAppStore = defineStore("app", {
     statusMessage: "",
     currentStage: "idle", // idle, loading_model, transcribing, translating, saving, installing, cancelling
     results: [] as Segment[],
+    selectedFilePath: null as string | null,
+    // Resume Logic State
+    showResumeModal: false,
+    resumePoints: null as {
+      has_audio: boolean;
+      has_transcript: boolean;
+    } | null,
+    pendingVideoPath: null as string | null,
     systemStatus: {
       gpu_vendor: "unknown",
       can_accelerate: false,
@@ -137,6 +145,18 @@ export const useAppStore = defineStore("app", {
       } else {
         this.statusMessage = `Error: ${data.message}`;
       }
+    },
+    setSelectedFile(path: string | null) {
+      this.selectedFilePath = path;
+    },
+    setResumeState(data: {
+      show: boolean;
+      points?: any;
+      path?: string | null;
+    }) {
+      this.showResumeModal = data.show;
+      if (data.points !== undefined) this.resumePoints = data.points;
+      if (data.path !== undefined) this.pendingVideoPath = data.path;
     },
   },
 });

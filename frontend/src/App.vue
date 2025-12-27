@@ -20,9 +20,7 @@ const currentLang = computed(() => (store.config?.app.language as Language) || '
 const t = computed(() => translations[currentLang.value]);
 
 // Resume Logic State
-const showResumeModal = ref(false);
-const resumePoints = ref<{ has_audio: boolean, has_transcript: boolean } | null>(null);
-const pendingVideoPath = ref<string | null>(null);
+// Resume Logic handled by store
 
 const translateViewRef = ref<any>(null);
 
@@ -56,15 +54,14 @@ onMounted(async () => {
 });
 
 const onShowResume = (data: { points: any, path: string }) => {
-    resumePoints.value = data.points;
-    pendingVideoPath.value = data.path;
-    showResumeModal.value = true;
+    store.setResumeState({ show: true, points: data.points, path: data.path });
 };
 
 const handleResumeDecision = async (mode: string) => {
-    showResumeModal.value = false;
-    if (pendingVideoPath.value) {
-        await store.startTask(pendingVideoPath.value, currentLang.value === 'zh' ? 'Chinese' : 'English', mode);
+    const videoPath = store.pendingVideoPath;
+    store.setResumeState({ show: false });
+    if (videoPath) {
+        await store.startTask(videoPath, currentLang.value === 'zh' ? 'Chinese' : 'English', mode);
     }
 };
 
@@ -168,8 +165,8 @@ const onResizeEnd = () => {
             <SystemView v-if="activeTab === 'system'" :t="t" />
         </main>
 
-        <ResumeModal :show="showResumeModal" :resumePoints="resumePoints" :t="t" @decision="handleResumeDecision"
-            @close="showResumeModal = false" />
+        <ResumeModal :show="store.showResumeModal" :resumePoints="store.resumePoints" :t="t"
+            @decision="handleResumeDecision" @close="store.setResumeState({ show: false })" />
     </div>
 </template>
 
