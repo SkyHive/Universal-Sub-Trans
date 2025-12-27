@@ -102,9 +102,9 @@ const handleInstallDeps = async () => {
 
                     <div v-if="store.systemStatus.is_installing" class="space-y-4">
                         <div class="flex items-center justify-between text-sm font-bold uppercase tracking-widest">
-                            <span>{{ t.downloadingCudnn }}</span>
+                            <span class="truncate max-w-[80%]">{{ store.statusMessage || t.downloadingCudnn }}</span>
                             <span class="text-primary">{{ Math.round(store.systemStatus.install_progress)
-                                }}%</span>
+                            }}%</span>
                         </div>
                         <div class="w-full h-3 bg-accent/30 rounded-full overflow-hidden p-1 border border-white/5">
                             <div class="h-full bg-primary rounded-full transition-all duration-300 relative"

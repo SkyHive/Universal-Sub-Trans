@@ -1,6 +1,6 @@
 import os
 import platform
-from typing import Generator, Any
+from typing import Generator, Any, Optional, Callable
 from backend.services.logger import logger
 from backend.services.config_mgr import config_mgr
 
@@ -15,14 +15,17 @@ class FasterWhisperService:
         self.model: Any = None
         self._current_model_size: str = ""
 
-    def _ensure_model_loaded(self) -> None:
+    def _ensure_model_loaded(self, status_callback: Optional[Callable[[str], None]] = None) -> None:
         """
         Loads the model if it's not already loaded or if the size has changed.
         Includes a fallback to CPU if CUDA initialization fails.
         """
         config = config_mgr.config.whisper
         if self.model is None or self._current_model_size != config.model_size:
-            logger.info(f"loading_whisper_model: {config.model_size} on {config.device}")
+            msg = f"Loading AI Model ({config.model_size})..."
+            logger.info(msg)
+            if status_callback:
+                status_callback(msg)
             
             # Auto-detect compute type if not specified
             compute_type = config.compute_type
@@ -64,17 +67,25 @@ class FasterWhisperService:
             self._current_model_size = config.model_size
             logger.info(f"whisper_model_loaded_successfully: {config.model_size}")
 
-    def transcribe(self, media_path: str) -> Generator[dict, None, None]:
+    def transcribe(self, media_path: str, status_callback: Optional[Callable[[str, str], None]] = None) -> Generator[dict, None, None]:
         """
         Transcribes an audio or video file and yields segments.
 
         Args:
             media_path (str): Path to the media file.
+            status_callback (Callable): Callback for status updates (e.g. model loading).
 
         Yields:
             dict: A segment with start, end, and text.
         """
-        self._ensure_model_loaded()
+        def _load_cb(msg: str):
+            if status_callback:
+                status_callback(msg, "loading_model")
+
+        self._ensure_model_loaded(status_callback=_load_cb)
+        
+        if status_callback:
+            status_callback("Model ready, starting transcription...", "transcribing")
         
         config = config_mgr.config.whisper
         logger.info(f"transcription_started: {media_path}")

@@ -139,7 +139,7 @@ class DependencyManager:
         
         return None
 
-    def download_deps(self, progress_callback: Optional[Callable[[float], None]] = None) -> bool:
+    def download_deps(self, progress_callback: Optional[Callable[[float, str], None]] = None) -> bool:
         """
         Orchestrates the download and robust extraction of DLLs from PyPI wheels,
         skipping packages that are already present.
@@ -173,8 +173,11 @@ class DependencyManager:
             if already_installed:
                 logger.info(f"package_already_present_skipping: {package_name}")
                 if progress_callback:
-                    progress_callback((idx + 1) / len(pkgs) * 100)
+                    progress_callback((idx + 1) / len(pkgs) * 100, f"Verified {package_name}")
                 continue
+
+            if progress_callback:
+                progress_callback(base_overall_progress, f"Fetching metadata for {package_name}...")
 
             wheel_url = self._get_wheel_url(package_name)
             if not wheel_url:
@@ -188,14 +191,14 @@ class DependencyManager:
                     if total_size > 0 and progress_callback:
                         download_prog = (block_num * block_size / total_size) * 0.8
                         overall = base_overall_progress + (download_prog * pkg_weight)
-                        progress_callback(min(99, overall))
+                        progress_callback(min(99, overall), f"Downloading {package_name}...")
 
                 logger.info(f"downloading_from: {wheel_url}")
                 urllib.request.urlretrieve(wheel_url, temp_wheel, reporthook=_report_hook)
 
                 # 2. Extraction Phase - Robust Search
                 if progress_callback:
-                    progress_callback(base_overall_progress + (0.85 * pkg_weight))
+                    progress_callback(base_overall_progress + (0.85 * pkg_weight), f"Extracting {package_name}...")
                 
                 logger.info(f"scanning_and_extracting_libs_from: {package_name}")
                 extracted_count = 0
@@ -218,14 +221,14 @@ class DependencyManager:
                 os.remove(temp_wheel)
                 
                 if progress_callback:
-                    progress_callback((idx + 1) / len(pkgs) * 100)
+                    progress_callback((idx + 1) / len(pkgs) * 100, f"Installed {package_name}")
 
             except Exception as e:
                 logger.error(f"process_failed: {package_name}, {e}", exc_info=True)
                 if os.path.exists(temp_wheel): os.remove(temp_wheel)
                 return False
 
-        if progress_callback: progress_callback(100)
+        if progress_callback: progress_callback(100, "All dependencies installed successfully.")
         return True
 
 dep_mgr = DependencyManager()

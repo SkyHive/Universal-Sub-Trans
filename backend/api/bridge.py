@@ -18,6 +18,7 @@ class ApiBridge:
     def __init__(self) -> None:
         self._window: Optional[webview.Window] = None
         self._is_processing: bool = False
+        self._cancel_flag = threading.Event()
 
     def set_window(self, window: webview.Window) -> None:
         """
@@ -45,8 +46,8 @@ class ApiBridge:
         """
         from backend.services.dep_mgr import dep_mgr
         
-        def _on_progress(progress: float):
-            self._notify_frontend("dep_install_progress", {"progress": progress})
+        def _on_progress(progress: float, message: str):
+            self._notify_frontend("dep_install_progress", {"progress": progress, "message": message, "stage": "installing"})
 
         def _run_install():
             success = dep_mgr.download_deps(progress_callback=_on_progress)
@@ -115,6 +116,16 @@ class ApiBridge:
         if self._window:
             self._window.resize(width, height)
 
+    def cancel_task(self) -> dict:
+        """
+        Signals the current task to cancel.
+        """
+        if self._is_processing:
+            logger.info("cancelling_current_task")
+            self._cancel_flag.set()
+            return {"status": "cancelling"}
+        return {"status": "idle"}
+
     def check_task_resume_point(self, video_path: str) -> dict:
         """
         Detects if temporary audio or transcript files exist for the given video.
@@ -139,6 +150,7 @@ class ApiBridge:
             return {"status": "error", "message": "File not found."}
 
         self._is_processing = True
+        self._cancel_flag.clear()
         threading.Thread(target=self._run_task, args=(video_path, target_lang, resume_mode), daemon=True).start()
         return {"status": "started"}
 
@@ -154,20 +166,33 @@ class ApiBridge:
             # --- STEP 1: Transcription ---
             if resume_mode == "use_transcript" and os.path.exists(transcript_path):
                 logger.info("resuming_from_transcript_cache")
-                self._notify_frontend("status_update", {"message": "Loading saved transcript...", "progress": 25})
+                self._notify_frontend("status_update", {"message": "Loading saved transcript...", "progress": 25, "stage": "transcribing"})
                 import json
                 with open(transcript_path, 'r', encoding='utf-8') as f:
                     segments = json.load(f)
             else:
-                self._notify_frontend("status_update", {"message": "Transcribing...", "progress": 20})
+                def _status_cb(msg: str, stage: str = "loading_model"):
+                    self._notify_frontend("status_update", {"message": msg, "progress": 15, "stage": stage})
+
                 # Directly transcribe the video file
                 input_media = audio_path if (resume_mode == "use_audio" and os.path.exists(audio_path)) else video_path
-                for segment in whisper_svc.transcribe(input_media):
+                
+                # Check for cancellation before starting
+                if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
+
+                for segment in whisper_svc.transcribe(input_media, status_callback=_status_cb):
+                    if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
                     segments.append(segment)
                     progress = min(20 + len(segments), 60)
-                    self._notify_frontend("status_update", {"message": f"Transcribed {len(segments)} segments...", "progress": progress})
+                    self._notify_frontend("status_update", {"message": f"Transcribed {len(segments)} segments...", "progress": progress, "stage": "transcribing"})
                 
+                if not segments:
+                    logger.warning("no_speech_detected")
+                    self._notify_frontend("task_failed", {"message": "No speech detected in this media file."})
+                    return
+
                 # Save checkpoint for source segments
+                self._notify_frontend("status_update", {"message": "Transcription finished, saving checkpoint...", "progress": 65, "stage": "transcribing"})
                 try:
                     import json
                     with open(transcript_path, 'w', encoding='utf-8') as f:
@@ -177,11 +202,13 @@ class ApiBridge:
                     logger.error(f"failed_to_save_checkpoint: {ex}")
 
             # --- STEP 3: Translation ---
-            self._notify_frontend("status_update", {"message": "Translating...", "progress": 70})
+            if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
+            self._notify_frontend("status_update", {"message": "Translating...", "progress": 70, "stage": "translating"})
             batch_size = config_mgr.config.ai.batch_size
             results = []
             
             for i in range(0, len(segments), batch_size):
+                if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
                 batch = segments[i:i + batch_size]
                 texts = [s["text"] for s in batch]
                 translations = ai_engine.translate_batch(texts, target_lang)
@@ -192,10 +219,11 @@ class ApiBridge:
                 
                 results.extend(batch)
                 progress = 70 + int((i / len(segments)) * 25)
-                self._notify_frontend("status_update", {"message": f"Translated {len(results)}/{len(segments)}...", "progress": progress})
+                self._notify_frontend("status_update", {"message": f"Translated {len(results)}/{len(segments)}...", "progress": progress, "stage": "translating"})
 
             # --- STEP 4: Save SRT ---
-            self._notify_frontend("status_update", {"message": "Saving SRT file...", "progress": 95})
+            if self._cancel_flag.is_set(): raise InterruptedError("cancelled_by_user")
+            self._notify_frontend("status_update", {"message": "Saving SRT file...", "progress": 95, "stage": "saving"})
             
             # Generate SRT path: video.mp4 -> video.srt or video.zh.srt
             base_path = os.path.splitext(video_path)[0]
@@ -207,16 +235,13 @@ class ApiBridge:
                 logger.info(f"srt_saved_successfully: {srt_path}")
             except Exception as se:
                 logger.error(f"failed_to_save_srt: {se}")
-                # We don't fail the whole task if just saving fails, 
-                # but we should probably notify the user.
 
             # 5. Finalize
             self._notify_frontend("task_completed", {"segments": results, "srt_path": srt_path})
 
-            # Cleanup audio only if not intended to keep it (optional)
-            # We keep transcript_path (.temp.json) for future resumes unless user manually clears it
-            # if os.path.exists(audio_path): os.remove(audio_path)
-
+        except InterruptedError:
+            logger.info("task_cancelled_successfully")
+            self._notify_frontend("task_failed", {"message": "Task cancelled by user", "cancelled": True})
         except Exception as e:
             logger.error(f"task_execution_failed: {e}", exc_info=True)
             self._notify_frontend("task_failed", {"message": str(e)})

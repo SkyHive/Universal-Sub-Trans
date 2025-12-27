@@ -7,6 +7,7 @@ export const useAppStore = defineStore("app", {
     isProcessing: false,
     currentProgress: 0,
     statusMessage: "",
+    currentStage: "idle", // idle, loading_model, transcribing, translating, saving, installing, cancelling
     results: [] as Segment[],
     systemStatus: {
       gpu_vendor: "unknown",
@@ -16,6 +17,26 @@ export const useAppStore = defineStore("app", {
       is_installing: false,
     },
   }),
+  getters: {
+    buttonText: (state) => {
+      switch (state.currentStage) {
+        case "loading_model":
+          return "Loading AI Model...";
+        case "transcribing":
+          return "Transcribing Audio...";
+        case "translating":
+          return "Translating Text...";
+        case "saving":
+          return "Saving Results...";
+        case "cancelling":
+          return "Cancelling...";
+        case "installing":
+          return "Installing...";
+        default:
+          return "Start Production";
+      }
+    },
+  },
   actions: {
     async checkSystemStatus() {
       const status = await bridge.checkDepStatus();
@@ -29,20 +50,41 @@ export const useAppStore = defineStore("app", {
     async installDependencies() {
       this.systemStatus.is_installing = true;
       this.systemStatus.install_progress = 0;
+      this.currentStage = "installing";
+      this.statusMessage = "Starting installation...";
       await bridge.installDeps();
     },
-    updateInstallProgress(progress: number) {
-      this.systemStatus.install_progress = progress;
+    updateInstallProgress(data: {
+      progress: number;
+      message: string;
+      stage?: string;
+    }) {
+      this.systemStatus.install_progress = data.progress;
+      if (data.message) {
+        this.statusMessage = data.message;
+      }
+      if (data.stage) {
+        this.currentStage = data.stage;
+      }
     },
     completeInstallation(message: string) {
       this.systemStatus.is_installing = false;
       this.systemStatus.needs_install = false;
       this.systemStatus.install_progress = 100;
+      this.currentStage = "idle";
       this.statusMessage = message;
     },
     installationFailed(message: string) {
       this.systemStatus.is_installing = false;
+      this.currentStage = "idle";
       this.statusMessage = message;
+    },
+    async cancelCurrentTask() {
+      if (this.isProcessing) {
+        this.statusMessage = "Cancelling...";
+        this.currentStage = "cancelling";
+        await bridge.cancelTask();
+      }
     },
     async fetchConfig() {
       this.config = await bridge.fetchConfig();
@@ -60,6 +102,7 @@ export const useAppStore = defineStore("app", {
     ) {
       this.isProcessing = true;
       this.currentProgress = 0;
+      this.currentStage = "loading_model";
       this.statusMessage = "Starting...";
       // Only clear results if it's not a resume of translation
       if (resumeMode === "fresh") {
@@ -72,19 +115,28 @@ export const useAppStore = defineStore("app", {
       return await bridge.checkResumePoint(path);
     },
 
-    updateStatus(data: { message: string; progress: number }) {
+    updateStatus(data: { message: string; progress: number; stage?: string }) {
       this.statusMessage = data.message;
       this.currentProgress = data.progress;
+      if (data.stage) {
+        this.currentStage = data.stage;
+      }
     },
     completeTask(data: { segments: Segment[] }) {
       this.results = data.segments;
       this.isProcessing = false;
       this.currentProgress = 100;
+      this.currentStage = "idle";
       this.statusMessage = "Task completed successfully.";
     },
-    taskFailed(data: { message: string }) {
+    taskFailed(data: { message: string; cancelled?: boolean }) {
       this.isProcessing = false;
-      this.statusMessage = `Error: ${data.message}`;
+      this.currentStage = "idle";
+      if (data.cancelled) {
+        this.statusMessage = "Task cancelled by user.";
+      } else {
+        this.statusMessage = `Error: ${data.message}`;
+      }
     },
   },
 });

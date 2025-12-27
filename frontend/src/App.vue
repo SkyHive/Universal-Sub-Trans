@@ -43,7 +43,7 @@ onMounted(async () => {
                 store.taskFailed(data);
                 break;
             case 'dep_install_progress':
-                store.updateInstallProgress(data.progress);
+                store.updateInstallProgress(data);
                 break;
             case 'dep_install_completed':
                 store.completeInstallation(t.value.installSuccess);

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { FileVideo, CheckCircle, Play, Loader2 } from 'lucide-vue-next';
+import { FileVideo, CheckCircle, Play, Loader2, X } from 'lucide-vue-next';
 import { useAppStore } from '../store/app';
 import { bridge } from '../api/bridge';
 
@@ -33,6 +33,10 @@ const handleStart = async () => {
     } else {
         await store.startTask(selectedFilePath.value, props.currentLang === 'zh' ? 'Chinese' : 'English', "fresh");
     }
+};
+
+const handleCancel = async () => {
+    await store.cancelCurrentTask();
 };
 
 defineExpose({
@@ -84,9 +88,16 @@ defineExpose({
                     class="flex-1 py-5 bg-primary text-primary-foreground rounded-[25px] font-black text-xl flex items-center justify-center space-x-4 shadow-2xl shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:translate-y-0 transition-all duration-300 min-w-fit">
                     <Loader2 v-if="store.isProcessing" class="w-7 h-7 animate-spin" />
                     <Play v-else class="w-7 h-7 fill-current" />
-                    <span class="whitespace-nowrap">{{ store.isProcessing ? t.processingAudio :
+                    <span class="whitespace-nowrap">{{ store.isProcessing ? store.buttonText :
                         t.startProduction }}</span>
                 </button>
+
+                <!-- Cancel Button -->
+                <button v-if="store.isProcessing" @click="handleCancel"
+                    class="w-16 h-16 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 group shadow-xl shadow-red-500/10 shrink-0">
+                    <X class="w-8 h-8 group-hover:rotate-90 transition-transform duration-500" />
+                </button>
+
                 <div class="shrink-0 text-right max-w-[200px]">
                     <p class="text-xs font-bold opacity-50 mb-1 leading-tight">{{
                         store.statusMessage || t.systemReady }}</p>
