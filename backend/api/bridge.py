@@ -19,6 +19,7 @@ class ApiBridge:
         self._window: Optional[webview.Window] = None
         self._is_processing: bool = False
         self._cancel_flag = threading.Event()
+        self._dep_cancel_flag = threading.Event()
 
     def set_window(self, window: webview.Window) -> None:
         """
@@ -46,18 +47,31 @@ class ApiBridge:
         """
         from backend.services.dep_mgr import dep_mgr
         
+        self._dep_cancel_flag.clear()
+
         def _on_progress(progress: float, message: str):
             self._notify_frontend("dep_install_progress", {"progress": progress, "message": message, "stage": "installing"})
 
         def _run_install():
-            success = dep_mgr.download_deps(progress_callback=_on_progress)
+            success = dep_mgr.download_deps(progress_callback=_on_progress, cancel_event=self._dep_cancel_flag)
             if success:
                 self._notify_frontend("dep_install_completed", {"message": "Installation successful. Please restart application to enable GPU."})
             else:
-                self._notify_frontend("dep_install_failed", {"message": "Download failed. Check your internet connection."})
+                if self._dep_cancel_flag.is_set():
+                    self._notify_frontend("dep_install_failed", {"message": "Installation cancelled by user."})
+                else:
+                    self._notify_frontend("dep_install_failed", {"message": "Download failed. Check your internet connection."})
 
         threading.Thread(target=_run_install, daemon=True).start()
         return {"status": "started"}
+
+    def cancel_install_deps(self) -> dict:
+        """
+        Signals the dependency installation to cancel.
+        """
+        logger.info("cancelling_dep_installation")
+        self._dep_cancel_flag.set()
+        return {"status": "cancelling"}
 
     def get_config(self) -> dict:
         """

@@ -28,9 +28,7 @@ class PlatformManager:
         arch = platform.machine().lower()
         if arch == "amd64": arch = "x86_64"  # Standardize
         
-        root = PlatformManager.get_app_root()
-        lib_subdir = f"{current_os}-{arch}"
-        lib_path = os.path.join(root, "resources", "libs", lib_subdir)
+        lib_path = dep_mgr.get_lib_dir()
 
         # 1. Hardware Detection
         vendor = hardware_mgr.detect_gpu_vendor()

@@ -51,9 +51,24 @@ def package_app():
         "--include-package=pydantic_settings",
         "--include-package=openai",
         "--include-package=httpx",
+        "--include-package=onnxruntime", # Critical for VAD
         # Include data files for frontend and resources
         "--include-data-dir=backend/dist=backend/dist",
     ]
+
+    # VAD Model handling: faster-whisper needs the silero_vad onnx file
+    try:
+        import faster_whisper
+        fw_path = os.path.dirname(faster_whisper.__file__)
+        vad_model_path = os.path.join(fw_path, "assets", "silero_vad_v6.onnx")
+        if os.path.exists(vad_model_path):
+            # Tell Nuitka to put it in faster_whisper/assets/ in the distribution
+            cmd.append(f"--include-data-file={vad_model_path}=faster_whisper/assets/silero_vad_v6.onnx")
+            print(f"Including VAD model: {vad_model_path}")
+        else:
+            print(f"Warning: VAD model not found at {vad_model_path}")
+    except ImportError:
+        print("Warning: faster_whisper not found in current environment, skipping VAD model inclusion.")
 
     # Icon handling
     icon_path = "resources/icon.ico"
@@ -123,6 +138,29 @@ Name: "{{userdesktop}}\\Universal Subtitle Translator"; Filename: "{{app}}\\main
 
 [Run]
 Filename: "{{app}}\\main.exe"; Description: "{{cm:LaunchProgram,Universal Subtitle Translator}}"; Flags: nowait postinstall skipifsilent
+
+[Code]
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    if MsgBox('是否删除本地日志文件 (Logs)?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DelTree(ExpandConstant('{{localappdata}}\\UniversalSub\\UniversalSub\\Logs'), True, True, True);
+    end;
+    if MsgBox('是否删除下载的 GPU 依赖包和模型 (Libs)?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DelTree(ExpandConstant('{{localappdata}}\\UniversalSub\\UniversalSub\\libs'), True, True, True);
+    end;
+    if MsgBox('是否删除用户配置文件 (Settings)?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DeleteFile(ExpandConstant('{{localappdata}}\\UniversalSub\\UniversalSub\\config.json'));
+      // 尝试清理空目录
+      RemoveDir(ExpandConstant('{{localappdata}}\\UniversalSub\\UniversalSub'));
+      RemoveDir(ExpandConstant('{{localappdata}}\\UniversalSub'));
+    end;
+  end;
+end;
 """
     iss_file = "unisub_setup.iss"
     with open(iss_file, "w", encoding="utf-8") as f:

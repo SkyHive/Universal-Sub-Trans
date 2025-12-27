@@ -3,7 +3,7 @@ import zipfile
 import urllib.request
 import json
 import platform
-from typing import Callable, Optional, List, Dict
+from typing import Callable, Optional, List, Dict, Any
 from backend.services.logger import logger
 from backend.services.platform_mgr import platform_mgr
 
@@ -22,13 +22,14 @@ class DependencyManager:
     PYPI_PACKAGES = ["nvidia-cudnn-cu12", "nvidia-cublas-cu12"]
 
     def get_lib_dir(self) -> str:
-        """Returns the platform-specific library directory."""
+        """Returns the platform-specific library directory (in user data dir to avoid permission issues)."""
+        from appdirs import user_data_dir
         current_os = platform.system().lower()
         arch = platform.machine().lower()
         if arch == "amd64": arch = "x86_64"
         
-        root = platform_mgr.get_app_root()
-        return os.path.join(root, "resources", "libs", f"{current_os}-{arch}")
+        data_dir = user_data_dir("UniversalSub", "UniversalSub")
+        return os.path.join(data_dir, "libs", f"{current_os}-{arch}")
 
     def check_missing_deps(self) -> bool:
         """
@@ -139,7 +140,7 @@ class DependencyManager:
         
         return None
 
-    def download_deps(self, progress_callback: Optional[Callable[[float, str], None]] = None) -> bool:
+    def download_deps(self, progress_callback: Optional[Callable[[float, str], None]] = None, cancel_event: Optional[Any] = None) -> bool:
         """
         Orchestrates the download and robust extraction of DLLs from PyPI wheels,
         skipping packages that are already present.
@@ -151,6 +152,10 @@ class DependencyManager:
         current_os = platform.system().lower()
         
         for idx, package_name in enumerate(pkgs):
+            if cancel_event and cancel_event.is_set():
+                logger.info("dependency_download_cancelled")
+                return False
+
             base_overall_progress = (idx / len(pkgs)) * 100
             pkg_weight = 100 / len(pkgs)
             
@@ -189,6 +194,8 @@ class DependencyManager:
                 # 1. Download Phase
                 def _report_hook(block_num, block_size, total_size):
                     if total_size > 0 and progress_callback:
+                        if cancel_event and cancel_event.is_set():
+                             return
                         download_prog = (block_num * block_size / total_size) * 0.8
                         overall = base_overall_progress + (download_prog * pkg_weight)
                         progress_callback(min(99, overall), f"Downloading {package_name}...")
