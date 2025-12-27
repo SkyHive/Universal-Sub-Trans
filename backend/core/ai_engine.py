@@ -110,12 +110,8 @@ class AIEngine:
 
         except Exception as e:
             logger.error(f"ai_translation_failed: {e}", exc_info=True)
-            return lines
-
-        except Exception as e:
-            logger.error(f"ai_translation_failed: {e}", exc_info=True)
-            # Fallback to returning original lines if AI fails
-            return lines
+            # Re-raise exception to alert the user immediately
+            raise e
 
 # Global AI engine instance
 ai_engine = AIEngine()
