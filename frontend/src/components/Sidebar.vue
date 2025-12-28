@@ -21,7 +21,10 @@ const store = useAppStore();
                 class="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
                 <Globe class="w-6 h-6" />
             </div>
-            <h1 class="text-xl font-bold tracking-tight">UniSub</h1>
+            <div class="flex flex-col">
+                <h1 class="text-xl font-bold tracking-tight">UniSub</h1>
+                <span class="text-[10px] text-muted-foreground font-mono leading-none">v{{ store.appVersion }}</span>
+            </div>
         </div>
 
         <nav class="flex-1 space-y-1">

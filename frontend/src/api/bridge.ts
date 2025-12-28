@@ -74,6 +74,7 @@ declare global {
         open_path(
           path_type: string
         ): Promise<{ status: string; message?: string }>;
+        get_app_info(): Promise<{ version: string; name: string }>;
       };
     };
     onBackendEvent: (event: string, data: any) => void;
@@ -218,5 +219,10 @@ export const bridge = {
   async openPath(pathType: string): Promise<any> {
     await waitForBridge();
     return await window.pywebview.api.open_path(pathType);
+  },
+
+  async getAppInfo(): Promise<{ version: string; name: string }> {
+    await waitForBridge();
+    return await window.pywebview.api.get_app_info();
   },
 };

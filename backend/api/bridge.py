@@ -23,6 +23,12 @@ class ApiBridge:
         self._cancel_flag = threading.Event()
         self._dep_cancel_flag = threading.Event()
 
+    def get_app_info(self) -> dict:
+        """Returns application metadata including version."""
+        from backend.core.version import VERSION
+
+        return {"version": VERSION, "name": "UniSub"}
+
     def set_window(self, window: Optional[webview.Window]) -> None:
         """
         Sets the webview window instance.
