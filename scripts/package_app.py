@@ -74,11 +74,12 @@ def package_app(version="0.1.0"):
     is_windows = platform.system().lower() == "windows"
 
     # Base command
-    # We use 'uv run' to ensure Nuitka uses the project's virtual environment
+    # We use sys.executable to ensure Nuitka uses the current virtual environment's python
     cmd = [
-        "uv run python -m nuitka",
+        f'"{sys.executable}" -m nuitka',
         "--standalone",
         "--show-progress",
+        "--assume-yes-for-downloads",
         "--plugin-enable=pywebview",
         (
             "--plugin-enable=gi" if not is_windows else ""
@@ -106,7 +107,7 @@ def package_app(version="0.1.0"):
         if os.path.exists(vad_model_path):
             # Tell Nuitka to put it in faster_whisper/assets/ in the distribution
             cmd.append(
-                f"--include-data-file={vad_model_path}=faster_whisper/assets/silero_vad_v6.onnx"
+                f'--include-data-file="{vad_model_path}"=faster_whisper/assets/silero_vad_v6.onnx'
             )
             print(f"Including VAD model: {vad_model_path}")
         else:
@@ -126,9 +127,14 @@ def package_app(version="0.1.0"):
 
     # Optimized Windows-specific flags
     if is_windows:
+        # Windows metadata requires X.X.X.X format
+        win_version = version
+        while win_version.count(".") < 3:
+            win_version += ".0"
+
         cmd.append("--windows-console-mode=disable")  # Hide console for GUI
-        cmd.append(f"--windows-product-version={version}")
-        cmd.append(f"--windows-file-version={version}")
+        cmd.append(f"--windows-product-version={win_version}")
+        cmd.append(f"--windows-file-version={win_version}")
         cmd.append('--windows-company-name="SkyHive"')
         cmd.append('--windows-product-name="UniSub"')
         # cmd.append("--onefile") # Uncomment if you want a single .exe
