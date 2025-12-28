@@ -29,6 +29,7 @@ export const useAppStore = defineStore("app", {
       logs: "",
       libs: "",
     },
+    appVersion: "0.1.0",
   }),
   getters: {
     buttonText: (state) => {
@@ -165,6 +166,10 @@ export const useAppStore = defineStore("app", {
     },
     async fetchAppPaths() {
       this.appPaths = await bridge.getAppPaths();
+    },
+    async fetchAppInfo() {
+      const info = await bridge.getAppInfo();
+      this.appVersion = info.version;
     },
     async openPath(type: string) {
       await bridge.openPath(type);

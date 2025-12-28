@@ -27,6 +27,7 @@ const translateViewRef = ref<any>(null);
 onMounted(async () => {
     await store.fetchConfig();
     await store.checkSystemStatus();
+    await store.fetchAppInfo();
 
     // Setup global event listener for backend events
     window.onBackendEvent = (event: string, data: any) => {

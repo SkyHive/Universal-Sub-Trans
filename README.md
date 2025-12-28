@@ -2,6 +2,8 @@
 
 **UniSub** 是一款基于 AI 驱动的次世代全能字幕生成与翻译工具。它集成了业界先进的 `Faster-Whisper` 语音识别引擎与大语言模型（LLM）上下文翻译能力，旨在为视频创作者提供极致、流畅、且高度工业化的字幕制作方案。
 
+> 本项目受 [JAVTransl](https://github.com/thezeromr/JAVTransl) 的启发，因此想在 AV 领域之外做一个大而全的 AI 生成字幕的工具
+
 <p align="center">
   <img src="https://img.shields.io/badge/UI-Vue3%20%2B%20Tailwind-42b883" alt="UI">
   <img src="https://img.shields.io/badge/Backend-Python%203.12-3776ab" alt="Backend">
@@ -88,13 +90,17 @@ uv run python scripts/package_app.py
 
 项目配置了完整的 **GitHub Actions CI** 流水线，确保代码合规与构建稳定性。
 
-### 持续集成检查
+### 持续集成与发布 (CI/CD)
 
 - **Frontend**: 自动执行依赖安装与生产构建验证。
 - **Backend**:
   - `Black` & `Isort`: 自动化代码格式与导入优化检查。
   - `Flake8`: 静态代码风格检查。
   - `Mypy`: 严格的类型检查（基于 Python 3.12）。
+- **Automatic Packaging**:
+  - **版本发布模式**：仅当推送以 `v` 开头的版本 **Tag**（如 `v0.1.0`）时，GitHub Actions 才会触发 Windows 自动化打包流程。
+  - **产物关联**：生成的 `.exe` 安装包将自动关联至对应的 **GitHub Release** 中。
+  - **日常验证**：普通推送 (Push) 和 拉取请求 (PR) 仅触发前端/后端质量检查，不执行耗时的打包流程。
 
 ### 本地执行检查
 

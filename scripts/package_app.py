@@ -14,6 +14,42 @@ def run_command(cmd, cwd=None):
         sys.exit(e.returncode)
 
 
+def get_version():
+    """Determines the version from GITHUB_REF_NAME or pyproject.toml."""
+    # 1. Check CI environment (Targeted for Tags)
+    ci_version = os.environ.get("GITHUB_REF_NAME")
+    if ci_version and ci_version.startswith("v"):
+        version = ci_version[1:]  # v0.1.0 -> 0.1.0
+        print(f"Detected version from CI Tag: {version}")
+        # Sync to version.py
+        update_version_file(version)
+        return version
+
+    # 2. Fallback to pyproject.toml
+    try:
+        with open("pyproject.toml", "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip().startswith("version = "):
+                    version = line.split("=")[1].strip().strip('"')
+                    print(f"Detected version from pyproject.toml: {version}")
+                    return version
+    except Exception as e:
+        print(f"Error reading pyproject.toml: {e}")
+
+    return "0.1.0"
+
+
+def update_version_file(version):
+    """Updates backend/core/version.py with the current build version."""
+    version_file = os.path.join("backend", "core", "version.py")
+    try:
+        with open(version_file, "w", encoding="utf-8") as f:
+            f.write(f'VERSION = "{version}"\n')
+        print(f"Updated {version_file} to {version}")
+    except Exception as e:
+        print(f"Error updating version file: {e}")
+
+
 def build_frontend():
     print("--- Building Frontend ---")
     frontend_dir = os.path.abspath("frontend")
@@ -32,8 +68,8 @@ def build_frontend():
     print(f"Frontend build verified in: {dest_dist}")
 
 
-def package_app():
-    print("--- Packaging with Nuitka ---")
+def package_app(version="0.1.0"):
+    print(f"--- Packaging with Nuitka (v{version}) ---")
 
     is_windows = platform.system().lower() == "windows"
 
@@ -91,6 +127,10 @@ def package_app():
     # Optimized Windows-specific flags
     if is_windows:
         cmd.append("--windows-console-mode=disable")  # Hide console for GUI
+        cmd.append(f"--windows-product-version={version}")
+        cmd.append(f"--windows-file-version={version}")
+        cmd.append('--windows-company-name="SkyHive"')
+        cmd.append('--windows-product-name="UniSub"')
         # cmd.append("--onefile") # Uncomment if you want a single .exe
     else:
         # On Linux, PyQt6 is often needed as a backend for pywebview
@@ -112,12 +152,14 @@ def package_app():
 
     if is_windows:
         create_windows_installer(
-            "main.dist", icon_path if os.path.exists(icon_path) else None
+            "main.dist",
+            version,
+            icon_path if os.path.exists(icon_path) else None,
         )
 
 
-def create_windows_installer(dist_dir, icon_path=None):
-    print("--- Creating Windows Installer ---")
+def create_windows_installer(dist_dir, version, icon_path=None):
+    print(f"--- Creating Windows Installer (v{version}) ---")
     if not os.path.exists(dist_dir):
         print(f"Error: Distribution directory {dist_dir} not found.")
         return
@@ -127,14 +169,14 @@ def create_windows_installer(dist_dir, icon_path=None):
     iss_template = f"""
 [Setup]
 AppName=Universal Subtitle Translator
-AppVersion=0.1.0
+AppVersion={version}
 DefaultDirName={{autopf}}\\UniSub
 DefaultGroupName=UniSub
 UninstallDisplayIcon={{app}}\\main.exe
 Compression=lzma2
 SolidCompression=yes
 OutputDir=.
-OutputBaseFilename=UniSub_Setup_v0.1.0
+OutputBaseFilename=UniSub_Setup_v{version}
 {setup_icon_line}
 
 [Tasks]
@@ -207,8 +249,9 @@ end;
 
 
 if __name__ == "__main__":
+    version = get_version()
     build_frontend()
-    package_app()
+    package_app(version)
     print("\n--- Packaging Complete ---")
     if platform.system().lower() == "windows":
         print("Resulting exe can be found in 'main.dist/'")
