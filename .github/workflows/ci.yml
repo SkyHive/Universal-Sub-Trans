@@ -85,6 +85,14 @@ jobs:
             - name: Install dependencies
               run: uv sync --all-groups
 
+            - name: Cache Nuitka
+              uses: actions/cache@v4
+              with:
+                  path: ~\AppData\Local\Nuitka\Nuitka\Cache
+                  key: ${{ runner.os }}-nuitka-${{ hashFiles('uv.lock') }}
+                  restore-keys: |
+                      ${{ runner.os }}-nuitka-
+
             - name: Build and Package
               # package_app.py handles frontend build, nuitka and inno setup
               run: uv run python scripts/package_app.py
