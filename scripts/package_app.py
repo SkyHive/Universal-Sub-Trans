@@ -96,7 +96,7 @@ def package_app(version="0.1.0"):
         "--include-package=onnxruntime",  # Critical for VAD
         "--nofollow-import-to=sympy",  # Fixes MSVC out of heap space error
         "--nofollow-import-to=IPython",  # Not needed in runtime, very heavy
-        "--nofollow-import-to=setuptools", # Not needed in runtime
+        "--nofollow-import-to=setuptools",  # Not needed in runtime
         "--plugin-enable=anti-bloat",  # Automatic removal of bloat code (numpy, etc)
         "--low-memory",  # Helpful for CI environments
         # Include data files for frontend and resources

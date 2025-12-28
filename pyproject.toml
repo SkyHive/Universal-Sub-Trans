@@ -32,8 +32,8 @@ dev = [
 ]
 
 [tool.uv]
-python-version = "3.12"
-# Removed deprecated dev-dependencies field
+managed = true
+# Requires-python is defined in [project] section
 
 [tool.black]
 line-length = 88
