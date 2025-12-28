@@ -97,6 +97,13 @@ jobs:
               # package_app.py handles frontend build, nuitka and inno setup
               run: uv run python scripts/package_app.py
 
+            - name: Upload Nuitka Crash Report
+              if: failure()
+              uses: actions/upload-artifact@v4
+              with:
+                  name: Nuitka-Crash-Report
+                  path: nuitka-crash-report.xml
+
             - name: Upload Installer Artifact
               uses: actions/upload-artifact@v4
               with:
